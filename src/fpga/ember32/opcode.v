@@ -102,13 +102,12 @@ module opcode(
     output          addr_predec_postinc,// pre-decrement or post-increment loads and stores (e.g. PUSH/POP pseudo instructions)  
     output [13:0]   addr_offset,        // Signed address offset imbedded into instruction
 
-    output [3:0]    reg_dest,             // Output/Destination register index
-    output [3:0]    reg_srcA,             // Src register A index (Also Branch reg)
-    output [3:0]    reg_srcB,             // Src register B index
-    
+    output [3:0]    reg_dest,           // Output/Destination register index
+    output [3:0]    reg_srcA,           // Src register A index (Also Branch reg)
+    output [3:0]    reg_srcB,           // Src register B index
    
-    output          imm_val_en,           // Immediate value used instead of srcB index in ALU 
-    output [13:0]   imm_val              // Immediate value imbedded into instruction (in place of srcB)
+    output          imm_val_en,         // Immediate value used instead of srcB index in ALU 
+    output [13:0]   imm_val             // Immediate value imbedded into instruction (in place of srcB)
    
 );
 
