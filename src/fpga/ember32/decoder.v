@@ -31,16 +31,17 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //****************************************************************************
 
-`define ADDRESS_WIDTH   20     // Address width for Ember 1MB system bus (10 bits are ignored, plus 1 for VRAM and 1 for ROM
+//`define ADDRESS_WIDTH   20     // Address width for Ember 1MB system bus (10 bits are ignored, plus 1 for VRAM and 1 for ROM
 
 // Ember32 instruction decoder
-module decoder(
+module decoder( 
     input sys_clk,                          // System Clock
     input sys_rst,                          // System Reset
 
     input  [31:0] data_in,                  // Data bus input/read
     output [31:0] data_out,                 // Data bus output/write
-    output [ADDRESS_WIDTH-1:0] address_out, // (Sub-) Address to read from
+//    output [`ADDRESS_WIDTH-1:0] address_out, // (Sub-) Address to read from
+    output [19:0] address_out, // (Sub-) Address to read from
     
     output data_read_enable,                // True when data is requested on data_in (address_out and addr* bits will be valid)
     output data_write_enable,               // True when data on data_out is ready to be written (address_out and addr* bits will be valid)

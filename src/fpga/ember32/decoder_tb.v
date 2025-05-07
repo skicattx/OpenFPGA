@@ -41,7 +41,8 @@ wire sys_rst;
 
 wire [31:0] data_in;
 wire [31:0] data_out;
-wire [ADDRESS_WIDTH-1:0] address_out;
+//wire [ADDRESS_WIDTH-1:0] address_out;
+wire [19:0] address_out;
 
 wire data_read_enable;
 wire data_write_enable;
