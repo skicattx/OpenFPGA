@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+`timescale 1ns / 1ns
 
 //****************************************************************************
 // Ember CPU Instruction Opcode Decoder Implementation
@@ -72,8 +72,7 @@
 
 // Ember32 instruction decoder
 module opcode(
-        input           _sys_rst,           // System Reset
-        input [31:0]    instruction,        // Active instruction word
+        input [31:0]   instruction,        // Active instruction word
         
         output         inst_illegal,       // Illegal Instruction detected
         output         inst_noop,          // No-op instruction
@@ -120,7 +119,7 @@ module opcode(
     assign inst_ldi     = (instruction[31:26] == 6'b001011);
     assign inst_load    = (instruction[31:26] == 6'b001110);
     assign inst_store   = (instruction[31:26] == 6'b001111);
-    assign inst_alu     = (instruction[31:30] == 6'b01);
+    assign inst_alu     = (instruction[31:30] == 2'b01);
     assign inst_illegal = ~(inst_halt | inst_noop | inst_trap | inst_rtu | inst_branch | inst_mov | inst_ldi | inst_load | inst_store | inst_alu);
 
     assign branch_cond          = instruction[25:23];       
@@ -145,7 +144,6 @@ module opcode(
      
     assign imm_val_en           = instruction[14];         
     assign imm_val              = instruction[13:0];   
-
 
 
 endmodule          

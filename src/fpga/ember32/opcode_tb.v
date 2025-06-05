@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+`timescale 1ns / 1ns
 
 //****************************************************************************
 // Ember CPU Decoder Testbench
@@ -35,8 +35,6 @@
 
 // Tests for decoder
 module opcode_tb;
-
-reg         sys_rst = 'b1;
 
 reg  [31:0] instruction = 'h00;
     
@@ -76,7 +74,7 @@ wire [13:0] imm_val;
 
 
 opcode opcode_test(
-    sys_rst, instruction,        
+    instruction,        
     inst_illegal, inst_noop, inst_halt,inst_trap, inst_rtu, inst_branch, inst_mov, inst_ldi, inst_load, inst_store, inst_alu,           
     branch_cond, branch_imm_en, branch_offset,      
     data_width, reg_mov_dest, reg_mov_src,        
@@ -196,6 +194,14 @@ opcode opcode_test(
         instruction = 'h3c7b4000;
         #5;
        
+        // ST
+        instruction = 'h40433800;
+        #5;
+        instruction = 'h446e0000;
+        #5;
+        instruction = 'h68097fff;
+        #5;
+        instruction = 'h740944d2;
     
     end   
     
@@ -362,13 +368,22 @@ opcode opcode_test(
                 end
            inst_alu:
                 begin
-                    $write("ALU");
+                    $write("{alu}");
 
                     write_width_code(data_width);
-
+                    $write(" ");
                     
                     write_register('b0, 'b0, reg_dest[3:0]);
-                    $display(", $%4h", ldi_imm);
+                    $write(", ");
+                    write_register('b0, 'b0, reg_srcA[3:0]);
+                    $write(", ");
+
+                    if (imm_val_en == 'd1)
+                        $write("$%0h", imm_val);
+                    else 
+                        write_register('b0, 'b0, reg_srcB[3:0]);
+                    
+                    $write("\n");
                 end      
                 
         endcase

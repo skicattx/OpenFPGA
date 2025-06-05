@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+`timescale 1ns / 1ns
 
 //****************************************************************************
 // Ember CPU Decoder Testbench
@@ -36,37 +36,73 @@
 // Tests for decoder
 module decoder_tb;
 
-wire sys_clk; 
-wire sys_rst;
+    reg  sys_clk; 
+    reg  sys_rst;
 
-wire [31:0] data_in;
-wire [31:0] data_out;
-//wire [ADDRESS_WIDTH-1:0] address_out;
-wire [19:0] address_out;
+    reg  data_read_ready;
+    reg  data_write_complete;
 
-wire data_read_enable;
-wire data_write_enable;
-wire addr_ZeroPage;
-wire addr_RAM;
-wire addr_VRAM;
-wire addr_HighPageROM;
+    reg  [31:0] data_in;
+    wire [31:0] data_out;
 
-decoder decoder_test(
-    sys_clk, sys_rst,                        
+    wire data_read_request;
+    wire data_write_request;
 
-    data_in,                
-    data_out,               
-    address_out,
+    wire [decoder.ADDRESS_WIDTH-1:0] address_out;
 
-    data_read_enable,              
-    data_write_enable,             
+    wire addr_RAM;
+    wire addr_VRAM;
+    wire addr_HighPageROM;
+  
+    
+    decoder decoder_test(
+        sys_clk, sys_rst,                        
 
-    addr_ZeroPage, addr_RAM, addr_VRAM, addr_HighPageROM);
+        data_read_ready, data_write_complete,
+        
+        data_in, data_out,               
+        
+        data_read_request, data_write_request,             
+        
+        address_out,
+
+        addr_RAM, addr_VRAM, addr_HighPageROM );
+
+        
+    // Sequence of tests   
+    initial begin
+        sys_clk = 0;
+        sys_rst = 0;
+        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
+        #6;
+        sys_rst = 1;
+        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
+        #12;
+        data_in = 0;
+        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
+        #21;
+        sys_rst = 0;
+        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
+        #8;
+        data_read_ready = 1;
+        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
+        #30;
+        data_read_ready = 0;
+        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
+        #31;
+        data_in = 'h04000000;
+        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
+        #40;
+        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
+        
+//            $finish;
+    end
 
 
+    always #5 sys_clk = ~sys_clk;
     
     
     
     
 endmodule
-		
+        
