@@ -48,7 +48,8 @@ module decoder_tb;
     wire data_read_request;
     wire data_write_request;
 
-    wire [decoder.ADDRESS_WIDTH-1:0] address_out;
+    wire [20-1:0] address_out;
+//    wire [decoder.ADDRESS_WIDTH-1:0] address_out;
 
     wire addr_RAM;
     wire addr_VRAM;

@@ -107,15 +107,14 @@ module decoder
 
     wire [2:0]  branch_cond;   
     wire        branch_imm_en;
-    wire [21:0] branch_offset;
+    wire [31:0] branch_offset;
 
     wire [2:0]  data_width;         
     wire [5:0]  reg_mov_dest;       
     wire [5:0]  reg_mov_src;       
 
     wire        ldi_high_half;      
-    wire        ldi_high_page_fill;    
-    wire [15:0] ldi_imm;            
+    wire [31:0] ldi_imm_value;            
 
     wire        addr_predec_postinc;
     wire [13:0] addr_offset;   
@@ -125,18 +124,38 @@ module decoder
     wire [3:0]  reg_srcB;
         
     wire        imm_val_en;
-    wire [13:0] imm_val;
+    wire [31:0] imm_value;
 
 
     opcode opcode_decoder(
-        instruction_word,        
-        inst_illegal, inst_noop, inst_halt,inst_trap, inst_rtu, inst_branch, inst_mov, inst_ldi, inst_load, inst_store, inst_alu,           
-        branch_cond, branch_imm_en, branch_offset,      
-        data_width, reg_mov_dest, reg_mov_src,        
-        ldi_high_half, ldi_high_page_fill, ldi_imm,            
-        addr_predec_postinc, addr_offset,        
-        reg_dest, reg_srcA, reg_srcB,           
-        imm_val_en, imm_val );
+        .instruction(instruction_word),        
+        .inst_illegal(inst_illegal),
+        .inst_noop(inst_noop),
+        .inst_halt(inst_halt),
+        .inst_trap(inst_trap),
+        .inst_rtu(inst_rtu),
+        .inst_branch(inst_branch),
+        .inst_mov(inst_mov),
+        .inst_ldi(inst_ldi),
+        .inst_load(inst_load),
+        .inst_store(inst_store),
+        .inst_alu(inst_alu),
+        .branch_cond(branch_cond),
+        .branch_imm_en(branch_imm_en),
+        .branch_offset(branch_offset),
+        .data_width(data_width),
+        .reg_mov_dest(reg_mov_dest),
+        .reg_mov_src(reg_mov_src),
+        .ldi_high_half(ldi_high_half),
+        .ldi_imm_value(ldi_imm_value),
+        .addr_predec_postinc(addr_predec_postinc),
+        .addr_offset(addr_offset),
+        .reg_dest(reg_dest),
+        .reg_srcA(reg_srcA),
+        .reg_srcB(reg_srcB),
+        .imm_val_en(imm_val_en),
+        .imm_value(imm_value)
+    );
     
 
     
@@ -221,7 +240,7 @@ module decoder
             eStage_Decode: begin
                 $display("decoder: cpu_stage => eStage_Decode");
                 data_read_request = 0;
-                case (cpu_stage)
+/*                case (cpu_stage)
                     if (inst_illegal) begin
                     end
                     if (inst_noop) begin
@@ -245,6 +264,7 @@ module decoder
                     if (inst_alu) begin
                     end
                 endcase
+*/                
                 // Handle special instruction types here? (that need reads, writes, jumps, etc?)
             end
             eStage_LoadWait: begin

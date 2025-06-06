@@ -56,9 +56,7 @@
 //  op_mhs   = 6'h13  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
 //  op_mhu   = 6'h14  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
 //  op_div   = 6'h15  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
-//  op_divu  = 6'h16  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
-//  op_rem   = 6'h17  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
-//  op_remu  = 6'h18  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//  op_divu  = 6'h16  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      |  | 
 //                    // BIT | 31| 30| 29| 28| 27| 26| 25| 24| 23| 22| 21| 20| 19| 18| 17| 16| 15| 14| 13| 12| 11| 10| 09| 08| 07| 06| 05| 04| 03| 02| 01| 00| 
 //  op_and   = 6'h19  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
 //  op_or    = 6'h1a  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
@@ -69,45 +67,53 @@
 //                    // BIT | 31| 30| 29| 28| 27| 26| 25| 24| 23| 22| 21| 20| 19| 18| 17| 16| 15| 14| 13| 12| 11| 10| 09| 08| 07| 06| 05| 04| 03| 02| 01| 00| 
 
 
+`define DATA_WIDTH_W        'b000   // TODO: This is UNsigned...though I think the assembler and emulator currently treat imm values as signed...
+`define DATA_WIDTH_H        'b001
+`define DATA_WIDTH_SH       'b010
+`define DATA_WIDTH_B        'b011
+`define DATA_WIDTH_SB       'b100
+`define DATA_WIDTH_HH       'b101   // Unsupported
+`define DATA_WIDTH_BB       'b110   // Unsupported
+`define DATA_WIDTH_BBBB     'b111   // Unsupported
+
 
 // Ember32 instruction decoder
 module opcode(
-        input [31:0]   instruction,        // Active instruction word
-        
-        output         inst_illegal,       // Illegal Instruction detected
-        output         inst_noop,          // No-op instruction
-        output         inst_halt,          // Halt instruction
-        output         inst_trap,          // Trap instruction
-        output         inst_rtu,           // Return to User Mode instruction
-        output         inst_branch,        // Branch instruction
-        output         inst_mov,           // Move instruction
-        output         inst_ldi,           // Load Immediate instruction
-        output         inst_load,          // Memory Load instruction
-        output         inst_store,         // Memory Store instruction
-        output         inst_alu,           // ALU instruction
+        input [31:0]        instruction,        // Active instruction word
+                
+        output              inst_illegal,       // Illegal Instruction detected
+        output              inst_noop,          // No-op instruction
+        output              inst_halt,          // Halt instruction
+        output              inst_trap,          // Trap instruction
+        output              inst_rtu,           // Return to User Mode instruction
+        output              inst_branch,        // Branch instruction
+        output              inst_mov,           // Move instruction
+        output              inst_ldi,           // Load Immediate instruction
+        output              inst_load,          // Memory Load instruction
+        output              inst_store,         // Memory Store instruction
+        output              inst_alu,           // ALU instruction
 
-        output [2:0]    branch_cond,        // Branch condition code
-        output          branch_imm_en,      // Immediate value used instead of srcA index  
-        output [21:0]   branch_offset,      // Signed (aligned / <<2) address offset imbedded into bra/brl instruction (in place of srcA)
+        output [2:0]        branch_cond,        // Branch condition code
+        output              branch_imm_en,      // Immediate value used instead of srcA index  
+        output [31:0]       branch_offset,      // Sign-extended 24-bit (22-bit*4) branch offset (in place of srcA)
+            
+        output [2:0]        data_width,         // Data read/write width code ]
+        output [5:0]        reg_mov_dest,       // Dest register index for MOV instruction
+        output [5:0]        reg_mov_src,        // Src register index for MOV instruction  
+            
+        output              ldi_high_half,      // LDI writes only upper 16 bits of fully resolved immediate value that is returned
+        output reg[31:0]    ldi_imm_value,      // LDI immediate value
+            
+        output              addr_predec_postinc,// pre-decrement or post-increment loads and stores (e.g. PUSH/POP pseudo instructions)  
+        output [31:0]       addr_offset,        // Signed address offset imbedded into instruction
+    
+        output [3:0]        reg_dest,           // Output/Destination register index
+        output [3:0]        reg_srcA,           // Src register A index (Also Branch reg)
+        output [3:0]        reg_srcB,           // Src register B index
         
-        output [2:0]    data_width,         // Data read/write width code ]
-        output [5:0]    reg_mov_dest,       // Dest register index for MOV instruction
-        output [5:0]    reg_mov_src,        // Src register index for MOV instruction  
-        
-        output          ldi_high_half,      // LDI writes immediate value to high 16-bit half word
-        output          ldi_high_page_fill, // LDI Writes all 1s or all 0s depending on this bit[16]
-        output [15:0]   ldi_imm,            // LDI immediate value
-        
-        output          addr_predec_postinc,// pre-decrement or post-increment loads and stores (e.g. PUSH/POP pseudo instructions)  
-        output [13:0]   addr_offset,        // Signed address offset imbedded into instruction
-
-        output [3:0]    reg_dest,           // Output/Destination register index
-        output [3:0]    reg_srcA,           // Src register A index (Also Branch reg)
-        output [3:0]    reg_srcB,           // Src register B index
-       
-        output          imm_val_en,         // Immediate value used instead of srcB index in ALU 
-        output [13:0]   imm_val             // Immediate value imbedded into instruction (in place of srcB)
-       
+        output              imm_val_en,         // Immediate value used instead of srcB index in ALU 
+        output reg[31:0]    imm_value           // Sign or 0 extended immediate value (masked from data_width code)
+      
     );
 
     assign inst_halt    = (instruction[31:26] == 6'b000000);
@@ -124,18 +130,16 @@ module opcode(
 
     assign branch_cond          = instruction[25:23];       
     assign branch_imm_en        = instruction[22];    
-    assign branch_offset        = instruction[21:0];     
+    assign branch_offset        = {{9{instruction[21]}}, instruction[20:0], {2{1'b0}}};     
      
     assign data_width           = instruction[25:23];         
     assign reg_mov_dest         = instruction[22:17];       
     assign reg_mov_src          = instruction[16:11];       
      
     assign ldi_high_half        = instruction[18];      
-    assign ldi_high_page_fill   = instruction[16];  
-    assign ldi_imm              = instruction[15:0];            
      
     assign addr_predec_postinc  = instruction[14];
-    assign addr_offset          = instruction[13:0];        
+    assign addr_offset          = {{19{instruction[13]}}, instruction[12:0]};
      
     assign reg_dest             = instruction[22:19];
     assign reg_srcA             = instruction[18:15];
@@ -143,7 +147,41 @@ module opcode(
      
      
     assign imm_val_en           = instruction[14];         
-    assign imm_val              = instruction[13:0];   
+        
+    always @(*)
+        case (data_width)
+            `DATA_WIDTH_HH, `DATA_WIDTH_BB, `DATA_WIDTH_BBBB, // These are unsupported, just treat them as the default
+            `DATA_WIDTH_W:
+            begin
+                imm_value       = {{18{1'b0}}, instruction[13:0]};              // 14-bit unsigned extended
+                ldi_imm_value   = ldi_high_half ? {instruction[15:0], {16{1'b0}}} :                    // 16-bit to high halfword
+                                                  {{16{instruction[16]}}, instruction[15:0]};           // 17-bit sign extended
+            end
+            `DATA_WIDTH_H:
+            begin
+                imm_value       = {{18{1'b0}}, instruction[13:0]};              // 14-bit unsigned extended
+                ldi_imm_value   = ldi_high_half ? {instruction[15:0], {16{1'b0}}} :                    // 16-bit to high halfword
+                                                  {{16{1'b0}}, instruction[15:0]};                      // 16-bit unsigned extended
+            end
+            `DATA_WIDTH_SH:
+            begin
+                imm_value       = {{19{instruction[13]}}, instruction[12:0]};   // 14-bit signed extended
+                ldi_imm_value   = ldi_high_half ? {instruction[15:0], {16{1'b0}}} :                    // 16-bit to high halfword
+                                                  {{17{instruction[15]}}, instruction[14:0]};           // 16-bit signed extended
+            end
+            `DATA_WIDTH_B:
+            begin
+                imm_value       = {{24{1'b0}}, instruction[7:0]};               // 8-bit unsigned extended
+                ldi_imm_value   = ldi_high_half ? {{8{1'b0}}, instruction[7:0], {16{1'b0}}} :          // 8-bit unsigned extended to high halfword
+                                                  {{24{1'b0}}, instruction[7:0]};                       // 8-bit unsigned extended 
+            end
+            `DATA_WIDTH_SB:
+            begin
+                imm_value       = {{23{instruction[7]}}, instruction[6:0]};     // 8-bit signed extended
+                ldi_imm_value   = ldi_high_half ? {{9{instruction[7]}}, instruction[6:0], {16{1'b0}}} :// 8-bit signed extended to high halfword
+                                                  {{25{instruction[7]}}, instruction[6:0]};             // 8-bit signed extended 
+            end
+        endcase    
 
-
-endmodule          
+            
+endmodule        
