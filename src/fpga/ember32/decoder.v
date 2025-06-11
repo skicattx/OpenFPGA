@@ -1,7 +1,7 @@
 `timescale 1ns / 1ns
 
 //****************************************************************************
-// Ember CPU Instruction ? Implementation
+// Ember CPU Instruction Opcode Decoder Implementation
 //
 // Copyright 2025 Tom Gambill, IARI Ventures, LLC (IARITech.com)
 // 
@@ -32,357 +32,143 @@
 //****************************************************************************
 
 
+//****************************************************************************
+// OpCodes
+//                    // BIT | 31| 30| 29| 28| 27| 26| 25| 24| 23| 22| 21| 20| 19| 18| 17| 16| 15| 14| 13| 12| 11| 10| 09| 08| 07| 06| 05| 04| 03| 02| 01| 00| 
+//  op_nop   = 6'h00  //     |         Opcode        |                                          Unused                                                       | 
+//  op_halt  = 6'h01  //     |         Opcode        |                                          Unused                                                       |        
+//  op_trap  = 6'h02  //     |         Opcode        |                                          Unused                                                       |
+//  op_rtu   = 6'h03  //     |         Opcode        |                                          Unused                                                       |
+//      Branch        // BIT | 31| 30| 29| 28| 27| 26| 25| 24| 23| 22| 21| 20| 19| 18| 17| 16| 15| 14| 13| 12| 11| 10| 09| 08| 07| 06| 05| 04| 03| 02| 01| 00|
+//  op_bra   = 6'h06  //     |         Opcode        | Cond Code |Imm| Immediate /  Source Reg A /        Or Signed Immediate 22-bits                        |
+//  op_brl   = 6'h07  //     |         Opcode        | Cond Code |Imm| Immediate /  Source Reg A /        Or Signed Immediate 22-bits                        |
+// Special
+//  op_mov   = 6'h0A  //     |         Opcode        |   Width   |umD|hiR| Dest Register |umA|hiR| Source Reg    |                 Unused                    |
+//  op_ldi   = 6'h0B  //     |         Opcode        |   Width   | Dest Register | H | ? |HPF|     16-bit Immediate Value (signed extended with S bit)       |
+//      Memory
+//  op_ld    = 6'h0E  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |rA+|        Signed 14-bit Offset - Register A              |
+//  op_st    = 6'h0F  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |-rD|      Signed 14-bit Offset - Dest Register             |
+//      ALU           // BIT | 31| 30| 29| 28| 27| 26| 25| 24| 23| 22| 21| 20| 19| 18| 17| 16| 15| 14| 13| 12| 11| 10| 09| 08| 07| 06| 05| 04| 03| 02| 01| 00| 
+//  op_add   = 6'h10  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//  op_sub   = 6'h11  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//                    // BIT | 31| 30| 29| 28| 27| 26| 25| 24| 23| 22| 21| 20| 19| 18| 17| 16| 15| 14| 13| 12| 11| 10| 09| 08| 07| 06| 05| 04| 03| 02| 01| 00| 
+//  op_mul   = 6'h12  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//  op_mhs   = 6'h13  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//  op_mhu   = 6'h14  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//  op_div   = 6'h15  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//  op_divu  = 6'h16  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      |  | 
+//                    // BIT | 31| 30| 29| 28| 27| 26| 25| 24| 23| 22| 21| 20| 19| 18| 17| 16| 15| 14| 13| 12| 11| 10| 09| 08| 07| 06| 05| 04| 03| 02| 01| 00| 
+//  op_and   = 6'h19  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//  op_or    = 6'h1a  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//  op_xor   = 6'h1b  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//  op_lsr   = 6'h1c  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//  op_lsl   = 6'h1d  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//  op_asr   = 6'h1e  //     |         Opcode        |   Width   | Dest Register | Source Reg A  |Imm| Source Reg B  /      Or Signed Immediate 14-bits      | 
+//                    // BIT | 31| 30| 29| 28| 27| 26| 25| 24| 23| 22| 21| 20| 19| 18| 17| 16| 15| 14| 13| 12| 11| 10| 09| 08| 07| 06| 05| 04| 03| 02| 01| 00| 
+
+
+`define DATA_WIDTH_W        'b000   // TODO: This is UNsigned...though I think the assembler and emulator currently treat imm values as signed...
+`define DATA_WIDTH_H        'b001
+`define DATA_WIDTH_SH       'b010
+`define DATA_WIDTH_B        'b011
+`define DATA_WIDTH_SB       'b100
+`define DATA_WIDTH_HH       'b101   // Unsupported
+`define DATA_WIDTH_BB       'b110   // Unsupported
+`define DATA_WIDTH_BBBB     'b111   // Unsupported
+
+
 // Ember32 instruction decoder
-module decoder
-    #(
-        parameter ADDRESS_WIDTH = 20,
-        parameter RESET_ADDRESS = 32'hFFFF0000 
-    )
-    ( 
-        input                           sys_clk,                // System Clock
-        input                           sys_rst,                // System Reset
-                                    
-        input                           data_read_ready,        // True when data_in is valid after data_read_enable is true
-        input                           data_write_complete,    // True when data_out has been written after data_write_enable is true
-        input  [31:0]                   data_in,                // Data bus input/read                                
-        output reg [31:0]               data_out,               // Data bus output/write
+module decoder(
+        input [31:0]    instruction,            // Active instruction word
+                        
+        output          inst_illegal,           // Illegal Instruction detected
+        output          inst_noop,              // No-op instruction
+        output          inst_halt,              // Halt instruction
+        output          inst_trap,              // Trap instruction
+        output          inst_rtu,               // Return to User Mode instruction
+        output          inst_branch,            // Branch instruction
+        output          inst_mov,               // Move instruction
+        output          inst_ldi,               // Load Immediate instruction
+        output          inst_load,              // Memory Load instruction
+        output          inst_store,             // Memory Store instruction
+        output          inst_alu,               // ALU instruction
+        
+        output [2:0]    branch_cond,            // Branch condition code
+        output          branch_imm_en,          // Immediate value used instead of srcA index  
+        output [31:0]   branch_offset,          // Sign-extended 24-bit (22-bit*4) branch offset (in place of srcA)
+                    
+        output [2:0]    data_width,             // Data read/write width code ]
+                    
+        output          ldi_high_half,          // LDI writes only upper 16 bits of fully resolved immediate value that is returned
+                    
+        output          addr_predec_postinc,    // pre-decrement or post-increment loads and stores (e.g. PUSH/POP pseudo instructions)  
+        output [31:0]   addr_offset,            // Signed address offset imbedded into instruction
             
-        output reg                      data_read_request,      // True when data is requested on data_in (address_out and addr* bits will be valid)
-        output reg                      data_write_request,     // True when data on data_out is ready to be written (address_out and addr* bits will be valid)
-
-        output reg [ADDRESS_WIDTH-1:0]  address_out,            // (Sub-) Address to read from
-                                
-        output reg                      addr_RAM,               // True when address represents a RAM Address           ($xxxVVVVV) 
-        output reg                      addr_VRAM,              // True when address represents a VRAM Address          ($4xxVVVVV) 
-        output reg                      addr_HighPage           // True when address represents a High Page Address     ($8xxxVVVV) 	
+        output [5:0]    reg_dest,               // {user}(high}{Output/Destination register index}
+        output [5:0]    reg_srcA,               // {user}(high}{Src register A index (Also Branch reg)}
+        output [4:0]    reg_srcB,               // Src register B index
+                
+        output          imm_val_en,             // Immediate value used instead of srcB index in ALU 
+        output [31:0]   imm_value               // Sign or 0 extended immediate value (masked from data_width code)
+      
     );
 
+    assign  inst_halt    = (instruction[31:26] == 6'b000000);
+    assign  inst_noop    = (instruction[31:26] == 6'b000001);
+    assign  inst_trap    = (instruction[31:26] == 6'b000010);
+    assign  inst_rtu     = (instruction[31:26] == 6'b000011);
+    assign  inst_branch  = (instruction[31:27] == 5'b00011);
+    assign  inst_mov     = (instruction[31:26] == 6'b001010);
+    assign  inst_ldi     = (instruction[31:26] == 6'b001011);
+    assign  inst_load    = (instruction[31:26] == 6'b001110);
+    assign  inst_store   = (instruction[31:26] == 6'b001111);
+    assign  inst_alu     = (instruction[31:30] == 2'b01);
+    assign  inst_illegal = ~(inst_halt | inst_noop | inst_trap | inst_rtu | inst_branch | inst_mov | inst_ldi | inst_load | inst_store | inst_alu);
     
-    //*************************************************************************
-    // #defines
-    localparam eStage_Reset         = 0;        // Reset State
-    localparam eStage_Fetch         = 1;        // Fetch next instruction: address_out is valid - transition to Decode when 'read rdy' is signalled
-//    localparam eStage_FetchStall    = 2;      // Fetch has not returned yet (Mem clk delay)
-    localparam eStage_Decode        = 3;        // Opcode is loaded, waiting for settle of instruction/alu decode
-    localparam eStage_LoadWait      = 4;        // Waiting for memory load from ld instruction (st will not wait)
-    localparam eStage_Retire        = 5;        // Save result to register/mem?
-    localparam eStage_Halt          = 6;        // halt instruction, or breakpoint? waiting for external continue? (needed?)
-
-    localparam eRegBank_Super       = 0;        // 
-    localparam eRegBank_User        = 1;        // 
-
-    localparam eReg_Zero            = 0;        // 
-    localparam eReg_LR              = 14;       // 
-    localparam eReg_SP              = 15;       // 
-    localparam eReg_CC              = 16;       // 
-    localparam eReg_PC              = 17;       // 
-    localparam eReg_Cycles          = 18;       // 
-    localparam eReg_T0              = 19;       // 
-    localparam eReg_T1              = 20;       // 
-    localparam eReg_T2              = 21;       // 
-
+    assign  branch_cond          = instruction[25:23];       
+    assign  branch_imm_en        = instruction[22];    
+    assign  branch_offset        = {{9{instruction[21]}}, instruction[20:0], {2{1'b0}}};     
     
-    //*************************************************************************
-    // For non-pipelined state
-    reg [2:0]  cpu_stage;    
-    reg        cpu_usermode;
-    reg [31:0] registers[0:1][0:31]; // [supervisor/user][register index]
-    
-    
-    //*************************************************************************
-    // Opcode params
-    reg  [31:0] instruction_word;
+    assign  data_width           = instruction[25:23];
         
-    wire        inst_illegal;
-    wire        inst_noop;
-    wire        inst_halt;
-    wire        inst_trap;
-    wire        inst_rtu;
-    wire        inst_branch;
-    wire        inst_mov;
-    wire        inst_ldi;
-    wire        inst_load;
-    wire        inst_store;
-    wire        inst_alu;
-
-    wire [2:0]  branch_cond;   
-    wire        branch_imm_en;
-    wire [31:0] branch_offset;
-
-    wire [2:0]  data_width;         
-    wire [5:0]  reg_mov_dest;       
-    wire [5:0]  reg_mov_src;       
-
-    wire        ldi_high_half;      
-    wire [31:0] ldi_imm_value;            
-
-    wire        addr_predec_postinc;
-    wire [13:0] addr_offset;   
+    assign  ldi_high_half        = instruction[18];      
         
-    wire [3:0]  reg_dest;
-    wire [3:0]  reg_srcA;
-    wire [3:0]  reg_srcB;
+    assign  addr_predec_postinc  = instruction[14];
+    assign  addr_offset          = {{19{instruction[13]}}, instruction[12:0]};
         
-    wire        imm_val_en;
-    wire [31:0] imm_value;
-
-
-    opcode opcode_decoder(
-        .instruction(instruction_word),        
-        .inst_illegal(inst_illegal),
-        .inst_noop(inst_noop),
-        .inst_halt(inst_halt),
-        .inst_trap(inst_trap),
-        .inst_rtu(inst_rtu),
-        .inst_branch(inst_branch),
-        .inst_mov(inst_mov),
-        .inst_ldi(inst_ldi),
-        .inst_load(inst_load),
-        .inst_store(inst_store),
-        .inst_alu(inst_alu),
-        .branch_cond(branch_cond),
-        .branch_imm_en(branch_imm_en),
-        .branch_offset(branch_offset),
-        .data_width(data_width),
-        .reg_mov_dest(reg_mov_dest),
-        .reg_mov_src(reg_mov_src),
-        .ldi_high_half(ldi_high_half),
-        .ldi_imm_value(ldi_imm_value),
-        .addr_predec_postinc(addr_predec_postinc),
-        .addr_offset(addr_offset),
-        .reg_dest(reg_dest),
-        .reg_srcA(reg_srcA),
-        .reg_srcB(reg_srcB),
-        .imm_val_en(imm_val_en),
-        .imm_value(imm_value)
-    );
+    assign  reg_dest             = inst_mov ? instruction[22:17] : {{2'b00}, instruction[22:19]};   // Mov instruction has two additional index bits
+    assign  reg_srcA             = inst_mov ? instruction[16:11] : {{2'b00}, instruction[18:15]};   // Mov instruction has two additional index bits
     
-
-    
-    
-    
-
-
-
-
-    always @(posedge sys_clk)
-    begin
-        if (sys_rst) begin
-            // CPU Reset
-            $display("decoder: Trigger Synchronous Reset");
-            cpu_stage <= eStage_Reset;
-        end
-        else if (cpu_stage == eStage_Reset) begin
-            // Next clock after reset: fetch
-            $display("decoder: exiting Reset to Fetch");
-            cpu_stage  <= eStage_Fetch; 
-        end 
-        else if (cpu_stage == eStage_Reset) begin
-            // Next clock after reset: fetch
-            $display("decoder: exiting Reset to Fetch");
-            cpu_stage  <= eStage_Fetch; 
-        end 
-    end
-    
-    // Handle Data Ready 
-    always @(posedge data_read_ready)
-    begin
-        if (cpu_stage == eStage_Fetch) begin
-            // Fetch is complete, transition to Decoding
-            $display("decoder: eStage_Fetch => data_read_ready");
-            instruction_word = data_in;
-            data_read_request = 0;
-            cpu_stage = eStage_Decode;
-        end
-        else if (cpu_stage == eStage_LoadWait) begin
-            // Load is complete, transition to Retire
-            $display("decoder: eStage_LoadWait => data_read_ready");
-            registers[cpu_usermode][reg_dest] = data_in;
-            data_read_request = 0;
-            cpu_stage = eStage_Retire;
-        end
-        
-    end
-    
-    // Handle Stage Change 
-    always @(cpu_stage)
-    begin
-        case (cpu_stage)
-            eStage_Reset: begin
-                $display("decoder: cpu_stage => eStage_Reset");
-                data_out = 0;
-                data_read_request = 0;
-                data_write_request = 0;
-                
-                address_out = 0;
-                addr_RAM = 0;                
-                addr_VRAM = 0;                
-                addr_HighPage = 0;
-                
-                cpu_usermode = eRegBank_Super;
-                
-                registers[eRegBank_User][eReg_Cycles] = 0;
-                registers[eRegBank_User][eReg_CC] = 0;
-                
-                registers[eRegBank_Super][eReg_PC] = RESET_ADDRESS;
-                registers[eRegBank_Super][eReg_CC] = 0;
-                registers[eRegBank_Super][eReg_Cycles] = 0;
-            end
-            eStage_Fetch: begin
-                $display("decoder: cpu_stage => eStage_Fetch");
-                address_out = registers[eRegBank_Super][eReg_PC][ADDRESS_WIDTH-1:0]; // Set the PC on the address buss
-                addr_RAM = !registers[eRegBank_Super][eReg_PC][31] && !registers[eRegBank_Super][eReg_PC][30];      // address 0b00?? ???? ... is repeating RAM starting at 0x00000000
-                addr_VRAM = !registers[eRegBank_Super][eReg_PC][31] && registers[eRegBank_Super][eReg_PC][30];     // address 0b01?? ???? ... is repeating VRAM starting at 0x40000000
-                addr_HighPage = registers[eRegBank_Super][eReg_PC][31] && registers[eRegBank_Super][eReg_PC][30];  // address 0b11?? ???? ... is repeating ROM starting at 0xC0000000
-                data_read_request = 1; // Tell memory we want something
-                registers[eRegBank_Super][eReg_PC] = registers[eRegBank_Super][eReg_PC] + 4;
-            end
-            eStage_Decode: begin
-                $display("decoder: cpu_stage => eStage_Decode");
-                data_read_request = 0;
-/*                case (cpu_stage)
-                    if (inst_illegal) begin
-                    end
-                    if (inst_noop) begin
-                    end
-                    if (inst_halt) begin
-                    end
-                    if (inst_trap) begin
-                    end
-                    if (inst_rtu) begin
-                    end
-                    if (inst_branch) begin
-                    end
-                    if (inst_mov) begin
-                    end
-                     if (inst_ldi) begin
-                    end
-                    if (inst_load) begin
-                    end
-                    if (inst_store) begin
-                    end
-                    if (inst_alu) begin
-                    end
-                endcase
-*/                
-                // Handle special instruction types here? (that need reads, writes, jumps, etc?)
-            end
-            eStage_LoadWait: begin
-                $display("decoder: cpu_stage => eStage_LoadWait");
-            end
-            eStage_Retire: begin
-                $display("decoder: cpu_stage => eStage_Retire");
-            end
-            eStage_Halt: begin
-                $display("decoder: cpu_stage => eStage_Halt");
-            end
-        endcase
-    end    
-        
-       
-    
-            // Default CPU states after a reset
+    assign  reg_srcB             = {{1'b0}, instruction[13:10]};
         
         
-//       registers[SysMode::supervisor][RegSet::gp][0] <= 0; 
-//       registers[SysMode::user][RegSet::gp][0] <= 0;
-//       for (integer i=1; i<16; i=i+1) begin
-//           registers[SysMode::supervisor][RegSet::gp][i] <= i-3; 
-//           registers[SysMode::user][RegSet::gp][i] <= i<<2;
-//       end
-//       registers[SysMode::supervisor][RegSet::system][SysReg::cc] <= 0; 
-//       registers[SysMode::supervisor][RegSet::system][SysReg::pc] <= ISADefaults::SupervisorStartAddress; 
-//       registers[SysMode::user][RegSet::system][SysReg::cc] <= 0;
-//       registers[SysMode::user][RegSet::system][SysReg::pc] <= ISADefaults::UserStartAddress;
-//       
-//       curStage            <= PipelineStage::reset;
-///        nextStage       <= PipelineStage::pc_fetch;
-//       curUserMode         <= SysMode::supervisor;
-//       nextUserMode        <= SysMode::supervisor;
-//       nextAddress         <= ISADefaults::SupervisorStartAddress;
-//       nextWriteResult     <= 1'b0;
-//       nextResultALU       <= 0;
-//       nextResultMOV       <= 0;
-//       
-//       nextWritePC         <= 1'b0;
-//       nextResultPC        <= 0;
-//        
-//       nextTrap            <= 1'b0;  
-//       nextIllegalOp       <= 1'b0;  
-//       nextGlobalIntEnable <= 1'b0;  
-//       nextDivZero         <= 1'b0;  
-//       nextOverflow        <= 1'b0;
-//       nextNegative        <= 1'b0;
-//       nextCarry           <= 1'b0;
-//       nextZero            <= 1'b0;
-/*
-    end
-    else begin
-        curStage <= nextStage;
-        curUserMode <= nextUserMode;
-        curAddress <= nextAddress;
-        
-        case (nextStage)
-            PipelineStage::pc_fetch : begin
-                // Increment PC
-                registers[curUserMode][RegSet::system][SysReg::pc] <= registers[curUserMode][RegSet::system][SysReg::pc] + 4;                 
-            end
-            PipelineStage::decode : begin             
+    assign  imm_val_en           = instruction[14];         
+    
+    
+    // Decode in parallel the various formats for packed immediate bits
+    wire [31:0] imm_8u   = {{24{1'b0}},            instruction[7:0]};   // 8-bit unsigned extended
+    wire [31:0] imm_8s   = {{23{instruction[7]}},  instruction[6:0]};   // 8-bit signed extended
+    wire [31:0] imm_14s  = {{19{instruction[13]}}, instruction[12:0]};  // 14-bit signed extended
+    wire [31:0] imm_14u  = {{18{1'b0}},            instruction[13:0]};  // 14-bit unsigned extended
+    
+    wire [31:0] imm32  = (data_width==`DATA_WIDTH_B)  ? imm_8u  :
+                         (data_width==`DATA_WIDTH_SB) ? imm_8s  :
+                         (data_width==`DATA_WIDTH_SH) ? imm_14s : 
+                                                    imm_14u;
 
-            end
-            PipelineStage::execute : begin
-                // Latch the various result values
-                nextWriteResult <= active_operation.writeResult;
-                nextResultALU <= active_operation.aluResult;
-                nextResultMOV <= active_operation.movResult;
-                
-                nextWritePC <= active_operation.writePC;
-                
-                // For now, only MOV writes this, but when we add LD, BRA, BRL, etc. this might be written in different stages
-                nextResultPC <= (active_operation.op.ldi.opCode == OpCode::op_mov) ? active_operation.movResult : 0;
-                
-                nextTrap            <= active_operation.trap;           
-                nextIllegalOp       <= active_operation.illegalOp;      
-                nextGlobalIntEnable <= active_operation.globalIntEnable;
-                nextDivZero         <= active_operation.divZero;           
+    wire [31:0] imm_ldi_b   = ldi_high_half ? {{8{1'b0}},           instruction[7:0], {16{1'b0}}} : {{24{1'b0}},           instruction[7:0]}; // 8-bit unsigned extended to high half : 8-bit unsigned extended to word
+    wire [31:0] imm_ldi_sb  = ldi_high_half ? {{9{instruction[7]}}, instruction[6:0], {16{1'b0}}} : {{25{instruction[7]}}, instruction[6:0]}; // 8-bit signed extended to high half   : 8-bit signed extended to word
+    wire [31:0] imm_ldi_h   = ldi_high_half ? {instruction[15:0],   {16{1'b0}}} : {{16{1'b0}},            instruction[15:0]};     // 16-bit to high half : 16-bit unsigned extended to word
+    wire [31:0] imm_ldi_sh  = ldi_high_half ? {instruction[15:0],   {16{1'b0}}} : {{17{instruction[15]}}, instruction[14:0]};     // 16-bit to high half : 16-bit signed extended to word
+    wire [31:0] imm_ldi_w   = ldi_high_half ? {instruction[15:0],   {16{1'b0}}} : {{16{instruction[16]}}, instruction[15:0]};     // 16-bit to high half : 17-bit sign extended to word
+                                             
+    wire [31:0] imm_ldi = (data_width==`DATA_WIDTH_B)  ? imm_ldi_b  :
+                          (data_width==`DATA_WIDTH_SB) ? imm_ldi_sb :
+                          (data_width==`DATA_WIDTH_H)  ? imm_ldi_h  : 
+                          (data_width==`DATA_WIDTH_SH) ? imm_ldi_sh : 
+                                                         imm_ldi_w;
+                             
+    assign  imm_value = inst_ldi ? imm_ldi : imm32;       
 
-                nextOverflow        <= active_operation.overflow;
-                nextNegative        <= active_operation.negative;
-                nextCarry           <= active_operation.carry;
-                nextZero            <= active_operation.zero;        
-            end
-            PipelineStage::retire : begin
-                if (nextWriteResult) begin
-                    if (active_operation.op.sys.opCode >= OpCode::op_add && active_operation.op.sys.opCode <= OpCode::op_asr) begin // TODO: make a Task()/Fn
-                        // Store ALU Result Value and Flags
-                        registers[curUserMode][RegSet::gp][active_operation.op.alu_rr.regDest] <= nextResultALU;
-                        registers[curUserMode][RegSet::system][SysReg::cc][3:0] <= '{nextOverflow, nextNegative, nextCarry, nextZero};
-                    end 
-                    else if (active_operation.op.ldi.opCode == OpCode::op_ldi) begin
-                        // LDI/LDIH Instructions
-                        if (active_operation.op.ldi.hiLoFlag == LDIHiLo::highHalf)
-                            registers[curUserMode][RegSet::gp][active_operation.op.ldi.regDest][31:16] <= Lib::MaskWidthCode16(active_operation.op.ldi.width, active_operation.op.ldi.immVal);
-                        else    
-                            registers[curUserMode][RegSet::gp][active_operation.op.ldi.regDest][31:0] <= Lib::MaskWidthCode16(active_operation.op.ldi.width, active_operation.op.ldi.immVal);
-                    end 
-                    else if (active_operation.op.ldi.opCode == OpCode::op_mov) begin
-                        // Store MOV Result Value
-                        registers[curUserMode | active_operation.op.mov.userRegD][active_operation.op.mov.regSetD][active_operation.op.mov.regDest] <= nextResultMOV;
-                    end
-                end
-                
-                if (nextWritePC)
-                    nextAddress <= nextResultPC; // If this instruction is updating PC, write the value directly (since updated PC won't be valid until next clock)
-                else
-                    nextAddress <= registers[curUserMode][RegSet::system][SysReg::pc];
-
-                registers[curUserMode][RegSet::system][SysReg::cc][7:4] <= '{nextTrap, nextIllegalOp, nextGlobalIntEnable, nextDivZero};
-            end
-            default : ;
-        endcase
-    end
-end    
-*/
-
-
-endmodule
+            
+endmodule        

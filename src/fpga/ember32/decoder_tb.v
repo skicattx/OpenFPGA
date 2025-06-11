@@ -31,79 +31,380 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //****************************************************************************
-
+   
 
 // Tests for decoder
-module decoder_tb;
+module opcode_tb;
 
-    reg  sys_clk; 
-    reg  sys_rst;
-
-    reg  data_read_ready;
-    reg  data_write_complete;
-
-    reg  [31:0] data_in;
-    wire [31:0] data_out;
-
-    wire data_read_request;
-    wire data_write_request;
-
-    wire [20-1:0] address_out;
-//    wire [decoder.ADDRESS_WIDTH-1:0] address_out;
-
-    wire addr_RAM;
-    wire addr_VRAM;
-    wire addr_HighPageROM;
-  
+reg  [31:0] instruction = 'h00;
     
-    decoder decoder_test(
-        sys_clk, sys_rst,                        
+wire        inst_illegal;
+wire        inst_noop;
+wire        inst_halt;
+wire        inst_trap;
+wire        inst_rtu;
+wire        inst_branch;
+wire        inst_mov;
+wire        inst_ldi;
+wire        inst_load;
+wire        inst_store;
+wire        inst_alu;
 
-        data_read_ready, data_write_complete,
-        
-        data_in, data_out,               
-        
-        data_read_request, data_write_request,             
-        
-        address_out,
+wire [2:0]  branch_cond;   
+wire        branch_imm_en;
+wire [21:0] branch_offset;
 
-        addr_RAM, addr_VRAM, addr_HighPageROM );
+wire [2:0]  data_width;         
+wire [5:0]  reg_mov_dest;       
+wire [5:0]  reg_mov_src;       
 
-        
-    // Sequence of tests   
+wire        ldi_high_half;      
+wire [31:0] ldi_imm;            
+
+wire        addr_predec_postinc;
+wire [13:0] addr_offset;   
+    
+wire [3:0]  reg_dest;
+wire [3:0]  reg_srcA;
+wire [3:0]  reg_srcB;
+    
+wire        imm_val_en;
+wire [31:0] imm_value;
+
+
+opcode opcode_test(
+    .instruction(instruction),        
+    .inst_illegal(inst_illegal),
+    .inst_noop(inst_noop),
+    .inst_halt(inst_halt),
+    .inst_trap(inst_trap),
+    .inst_rtu(inst_rtu),
+    .inst_branch(inst_branch),
+    .inst_mov(inst_mov),
+    .inst_ldi(inst_ldi),
+    .inst_load(inst_load),
+    .inst_store(inst_store),
+    .inst_alu(inst_alu),
+    .branch_cond(branch_cond),
+    .branch_imm_en(branch_imm_en),
+    .branch_offset(branch_offset),
+    .data_width(data_width),
+    .reg_mov_dest(reg_mov_dest),
+    .reg_mov_src(reg_mov_src),
+    .ldi_high_half(ldi_high_half),
+    .ldi_imm_value(ldi_imm),
+    .addr_predec_postinc(addr_predec_postinc),
+    .addr_offset(addr_offset),
+    .reg_dest(reg_dest),
+    .reg_srcA(reg_srcA),
+    .reg_srcB(reg_srcB),
+    .imm_val_en(imm_val_en),
+    .imm_value(imm_value)
+    );
+   
+    // Sequence of instructions   
     initial begin
-        sys_clk = 0;
-        sys_rst = 0;
-        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
-        #6;
-        sys_rst = 1;
-        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
-        #12;
-        data_in = 0;
-        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
-        #21;
-        sys_rst = 0;
-        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
-        #8;
-        data_read_ready = 1;
-        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
-        #30;
-        data_read_ready = 0;
-        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
-        #31;
-        data_in = 'h04000000;
-        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
-        #40;
-        $display("data_in=0x%8h, data_read_request=%d, address_out=%5h, addr_RAM=%d, addr_VRAM=%d, addr_HighPageROM=%d", data_in, data_read_request, address_out, addr_RAM, addr_VRAM, addr_HighPageROM);
+        instruction = 'hFFFFFFFF; // Invalid
+        #5;
+        instruction = 'h00000000; // Noop
+        #5;
+        instruction = 'h04000000; // halt
+        #5;
+        instruction = 'h08000000; // trap
+        #5;
+        instruction = 'h0C000000; // rtu
+        #5;
+
+        // bra
+        instruction = 'h18008000;  
+        #5
+        instruction = 'h187fffff; 
+        #5
+        instruction = 'h18838000; 
+        #5
+        instruction = 'h18c00005; 
+        #5
+
+        // brl
+        instruction = 'h1c008000; 
+        #5
+        instruction = 'h1c400003; 
+        #5
+        instruction = 'h1e848000; 
+        #5
+        instruction = 'h1e7ffffd; 
+        #5;
+
+        instruction = 'h28022000;
+        #5;
+        instruction = 'h28040000;
+        #5;
+        instruction = 'h28068800;
+        #5;
+        instruction = 'h28088000;
+        #5;
+        instruction = 'h28087000;
+        #5;
+        instruction = 'h28087800;
+        #5;
+        instruction = 'h28202000;
+        #5;
+        instruction = 'h28237800;
+        #5;
+        instruction = 'h28632000;
+        #5;
+        instruction = 'h28274800;
+        #5;
+        instruction = 'h28674800;
+        #5;
+        instruction = 'h28254800;
+        #5;
+        instruction = 'h282a0800;
+        #5;
+
+        // LDI
+        instruction = 'h2c08ffff;
+        #5;
+        instruction = 'h2c111234;
+        #5;
+        instruction = 'h2c14ff00;
+        #5;
+        instruction = 'h2c1c1234;
+        #5;
+        instruction = 'h2c199876;
+        #5;
+        instruction = 'h2c1c5678;
+        #5;
+       
+        instruction = 'h2d8800ff;
+        #5;
+        instruction = 'h2e1000f1;
+        #5;
+        instruction = 'h2c9c1234;
+        #5;
+        instruction = 'h2d18f876;
+        #5;
+        instruction = 'h2d9c5678;
+        #5;
+        instruction = 'h2e1c5678;        
+        #5
         
-//            $finish;
+        // LD
+        instruction = 'h38408000;
+        #5;
+        instruction = 'h38410004;
+        #5;
+        instruction = 'h38413ffc;
+        #5;
+        instruction = 'h38713fff;
+        #5;
+        instruction = 'h3837c000;
+        #5;
+        
+        // ST
+        instruction = 'h3c0f0000;
+        #5;
+        instruction = 'h3c178004;
+        #5;
+        instruction = 'h3c12bffc;
+        #5;
+        instruction = 'h3c6200ff;
+        #5;
+        instruction = 'h3c7b4000;
+        #5;
+       
+        // ST
+        instruction = 'h40433800;
+        #5;
+        instruction = 'h446e0000;
+        #5;
+        instruction = 'h68097fff;
+        #5;
+        instruction = 'h740944d2;
+    
+    end   
+    
+    
+    
+    task write_register(input user_mode, input high_reg, input [3:0] reg_index);
+        begin
+
+            if (user_mode) $write("u"); 
+            
+            if (high_reg)
+                case (reg_index)    
+                    'h0: $write("cc"); 
+                    'h1: $write("pc"); 
+                    'h2: $write("cycles"); 
+                    'h3: $write("t0"); 
+                    'h4: $write("t1"); 
+                    'h5: $write("t2"); 
+                    default: $write("hr%0d", reg_index); 
+               endcase
+            else
+                case (reg_index)    
+                    'h0: $write("zero"); 
+                    'hE: $write("lr"); 
+                    'hF: $write("sp"); 
+                    default: $write("r%0d", reg_index); 
+               endcase
+
+       end        
+    endtask   
+   
+
+    task write_width_code(input [2:0] data_width);
+        begin
+            case (data_width)    
+                'b000: $write("      "); // 32-bit Word
+                'b001: $write(".h    "); // 16-bit Half-Word
+                'b010: $write(".sh   "); // 16-bit Half-Word (Sign-Extended to fill 32-bits)
+                'b011: $write(".b    "); // 8-bit Byte 
+                'b100: $write(".sb   "); // 8-bit Byte (Sign-Extended to fill 32-bits)
+                'b101: $write(".hh   "); // 2 16-bit Half-Word Vector (Not Supported in 1.0)
+                'b110: $write(".bb   "); // 2 8-bit Byte Vector (Not Supported in 1.0)
+                'b111: $write(".bbbb "); // 4 8-bit Byte Vector (Not Supported in 1.0)      
+           endcase
+        end
+    endtask   
+    
+    
+
+    // At each instruction, look at the outputs
+    always @(*) 
+    begin
+        #1; // Settle Delay, then read the output bits
+        case ('d1)
+            inst_illegal:   $display("Illegal Instruction");
+            inst_noop:      $display("noop");
+            inst_halt:      $display("halt");
+            inst_trap:      $display("trap");
+            inst_rtu:       $display("rtu");
+
+            inst_branch:
+                begin
+                    if (instruction[26] == 'd1)
+                        $write("brl");
+                    else
+                        $write("bra");
+                        
+                    case (branch_cond)    
+                        'b000: $write("       ");
+                        'b001: $write(".eq/z  ");
+                        'b010: $write(".ne/nz ");
+                        'b011: $write(".lt    ");
+                        'b100: $write(".ge    ");
+                        'b101: $write(".c     ");
+                        'b110: $write(".nc    ");
+                        'b111: $write(".v     ");
+                   endcase
+
+                    if (branch_imm_en == 'd1)
+                        $write(" %4d", $signed(branch_offset) * 4);
+                    else
+                        write_register('b0, 'b0, reg_srcA);
+                    
+                    $write("\n");
+                end
+
+            inst_mov:
+                begin
+                    $write("mov");
+                        
+                    write_width_code(data_width);
+                    $write(" ");
+                    
+                    write_register(reg_mov_dest[5], reg_mov_dest[4], reg_mov_dest[3:0]);
+                    $write(", ");
+                    write_register(reg_mov_src[5], reg_mov_src[4], reg_mov_src[3:0]);
+                    
+                    $write("\n");
+                end
+                
+           inst_ldi:
+                begin
+                    if (ldi_high_half == 'd1) $write("ldih");
+                    else                      $write("ldi");    
+                    
+                    write_width_code(data_width);
+                    if (ldi_high_half == 'd0) $write(" ");
+
+                    write_register('b0, 'b0, reg_dest[3:0]);
+
+                    $display(", $ffff%4h", ldi_imm);
+                end      
+
+           inst_load:
+                begin
+                    if (addr_predec_postinc == 'd1) 
+                        begin
+                            $write("pop      ");
+                            write_register('b0, 'b0, reg_dest[3:0]);
+                            $write("\n");                            
+                        end    
+                    else
+                        begin
+                            $write("ld");    
+                            write_width_code(data_width);
+                            $write("  ");
+                            
+                            write_register('b0, 'b0, reg_dest[3:0]);
+                            $write(", (");
+                            write_register('b0, 'b0, reg_srcA[3:0]);
+                            
+                            if      ($signed(imm_value) > 0) $display("+%0d)", imm_value);
+                            else if ($signed(imm_value) < 0) $display("%0d)", $signed(imm_value));
+                            else                           $display(")");
+                        end      
+                end
+           inst_store:
+                begin
+                    if (addr_predec_postinc == 'd1) 
+                        begin
+                            $write("push     ");
+                            write_register('b0, 'b0, reg_srcA[3:0]);
+                            $write("\n");                            
+                        end    
+                    else
+                        begin
+
+                        $write("st");
+
+                        write_width_code(data_width);
+                        $write("  (");
+                      
+                        write_register('b0, 'b0, reg_dest[3:0]);
+                        if      ($signed(imm_value) > 0) $write("+%0d), ", imm_value);
+                        else if ($signed(imm_value) < 0) $write("%0d), ", $signed(imm_value));
+                        else                           $write("), ");
+
+                        write_register('b0, 'b0, reg_srcA[3:0]);
+                        $write("\n");
+                    end      
+                end
+           inst_alu:
+                begin
+                    $write("{alu}");
+
+                    write_width_code(data_width);
+                    $write(" ");
+                    
+                    write_register('b0, 'b0, reg_dest[3:0]);
+                    $write(", ");
+                    write_register('b0, 'b0, reg_srcA[3:0]);
+                    $write(", ");
+
+                    if (imm_val_en == 'd1)
+                        $write("$%0h", imm_value);
+                    else 
+                        write_register('b0, 'b0, reg_srcB[3:0]);
+                    
+                    $write("\n");
+                end      
+                
+        endcase
     end
+   
+   
 
-
-    always #5 sys_clk = ~sys_clk;
-    
-    
-    
-    
-endmodule
-        
+endmodule  
