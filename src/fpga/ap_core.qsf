@@ -290,7 +290,7 @@ set_global_assignment -name FAMILY "Cyclone V"
 set_global_assignment -name DEVICE_FILTER_PACKAGE FBGA
 set_global_assignment -name DEVICE_FILTER_PIN_COUNT 484
 set_global_assignment -name DEVICE_FILTER_SPEED_GRADE 8
-set_global_assignment -name TOP_LEVEL_ENTITY ember
+set_global_assignment -name TOP_LEVEL_ENTITY system_top
 set_global_assignment -name SAFE_STATE_MACHINE ON
 set_global_assignment -name ADV_NETLIST_OPT_SYNTH_WYSIWYG_REMAP ON
 set_global_assignment -name SYNTH_PROTECT_SDC_CONSTRAINT ON
@@ -379,14 +379,16 @@ set_global_assignment -name EDA_SIMULATION_TOOL "Questa Intel FPGA (Verilog)"
 set_global_assignment -name EDA_TIME_SCALE "1 ns" -section_id eda_simulation
 set_global_assignment -name EDA_OUTPUT_DATA_FORMAT "VERILOG HDL" -section_id eda_simulation
 set_global_assignment -name EDA_TEST_BENCH_ENABLE_STATUS TEST_BENCH_MODE -section_id eda_simulation
-set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH ember_test -section_id eda_simulation
+set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH system_test -section_id eda_simulation
 set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST OFF -section_id eda_board_design_timing
 set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST OFF -section_id eda_board_design_symbol
 set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST OFF -section_id eda_board_design_signal_integrity
 set_global_assignment -name EDA_GENERATE_FUNCTIONAL_NETLIST OFF -section_id eda_board_design_boundary_scan
 set_global_assignment -name EDA_RUN_TOOL_AUTOMATICALLY OFF -section_id eda_simulation
-set_global_assignment -name NUM_PARALLEL_PROCESSORS 4
+set_global_assignment -name NUM_PARALLEL_PROCESSORS 6
 set_global_assignment -name EDA_MAINTAIN_DESIGN_HIERARCHY ON -section_id eda_simulation
+set_global_assignment -name VERILOG_FILE ember32/system_top.v
+set_global_assignment -name VERILOG_FILE ember32/SysROM.v
 set_global_assignment -name VERILOG_FILE ember32/ember_tb.v
 set_global_assignment -name VERILOG_FILE ember32/ember.v
 set_global_assignment -name VERILOG_FILE ember32/alu.v
@@ -400,8 +402,6 @@ set_global_assignment -name QIP_FILE core/mf_pllbase.qip
 set_global_assignment -name SIP_FILE core/mf_pllbase.sip
 set_global_assignment -name VERILOG_FILE ember32/decoder.v
 set_global_assignment -name VERILOG_FILE ember32/decoder_tb.v
-set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id Ember_test
-set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME ember_tb -section_id ember_test
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
@@ -770,10 +770,14 @@ set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to bridge_1wire
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to bridge_spiclk
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to bridge_spimiso
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to bridge_spimosi
-set_global_assignment -name EDA_TEST_BENCH_NAME ember_test -section_id eda_simulation
-set_global_assignment -name EDA_TEST_BENCH_FILE ember32/ember.v -section_id ember_test
-set_global_assignment -name EDA_TEST_BENCH_FILE ember32/decoder.v -section_id ember_test
-set_global_assignment -name EDA_TEST_BENCH_FILE ember32/alu.v -section_id ember_test
-set_global_assignment -name EDA_TEST_BENCH_FILE ember32/ember_tb.v -section_id ember_test
+set_global_assignment -name EDA_TEST_BENCH_NAME system_test -section_id eda_simulation
+set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id system_test
+set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME system_tb -section_id system_test
+set_global_assignment -name EDA_TEST_BENCH_FILE ember32/decoder.v -section_id system_test
+set_global_assignment -name EDA_TEST_BENCH_FILE ember32/alu.v -section_id system_test
+set_global_assignment -name EDA_TEST_BENCH_FILE ember32/ember.v -section_id system_test
+set_global_assignment -name EDA_TEST_BENCH_FILE ember32/SysROM.v -section_id system_test
+set_global_assignment -name EDA_TEST_BENCH_FILE ember32/system_top.v -section_id system_test
+set_global_assignment -name EDA_TEST_BENCH_FILE ember32/system_tb.v -section_id system_test
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
 set_global_assignment -name SLD_FILE db/stp1_auto_stripped.stp

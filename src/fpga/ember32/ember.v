@@ -42,10 +42,10 @@ module ember
         input          sys_rst_n,           // System _Reset
 
         output [31:0]  mem_address_out,     // Address to read/write
-        output [31:0]  mem_data_out,        // Data output/write
-        output [3:0]   mem_data_out_mask,   // Data byte write bitmask
+        output [31:0]  mem_data_write,        // Data output/write
+        output [3:0]   mem_data_write_mask,   // Data byte write bitmask
         
-        input  [31:0]  mem_data_in,         // Data bus input/read                                
+        input  [31:0]  mem_data_read,         // Data bus input/read                                
 
         output         mem_read_strobe,     // High when read is requested ?
         output         mem_write_strobe,    // High when write is requested ?
@@ -58,7 +58,8 @@ module ember
 //        output reg                      addr_HighPage           // True when address represents a High Page Address     ($8xxxVVVV) 	
     );
 
-    assign mem_data_out_mask = 4'b1000;
+    assign mem_data_write_mask = 4'b1000;
+    assign mem_read_strobe = 1'b1; // TODO: connect to signals...
     
     //*************************************************************************
     // #defines
@@ -160,12 +161,14 @@ module ember
         
     wire        imm_val_en;
     wire [31:0] imm_value;
+    
 
+    
 
     //*************************************************************************
     // Instruction Decoder
     decoder instruction_decoder(
-        .instruction(mem_data_in),          // Non-registered, directly wired to memory input
+        .instruction(mem_data_read),          // Non-registered, directly wired to memory input
         
         .inst_illegal(inst_illegal),
         .inst_noop(inst_noop),
@@ -224,19 +227,19 @@ module ember
     // Various Program Counter, Load, Store Address Possibilities
     reg  [31:0] PC;                                 // The active PC (during fetch states)
 
-    wire [31:0] PC_plus4 = PC + 4;                  // The next PC if we don't branch, or swap system modes, breakpoint handler, etc.
+    wire [31:0] PC_plus4 = registers[eSystemMode_Super][eReg_PC] + 4;                  // The next PC if we don't branch, or swap system modes, breakpoint handler, etc.
     
-    wire [31:0] PC_branch = PC + branch_offset;     // The next PC if we're branching
+    wire [31:0] PC_branch = registers[eSystemMode_Super][eReg_PC] + branch_offset;     // The next PC if we're branching
     
     
-//    wire [31:0] PC_new = inst_branch ? :
+    wire [31:0] PC_new = inst_branch ? PC_branch : PC_plus4;
     
 //    isJALR           ? {aluPlus[ADDR_WIDTH-1:1],1'b0} :
 //    jumpToPCplusImm  ? PCplusImm :
 //    PCplus4;
     
     
-    wire [31:0] load_store_address = srcA_val + addr_offset; // Lowest 2 bits will be used for mask/shift for aligned memory access
+    wire [31:0] load_store_address = 0;//srcA_val + addr_offset; // Lowest 2 bits will be used for mask/shift for aligned memory access
     
     
     
@@ -263,6 +266,7 @@ module ember
             active_state                          <= eState_Wait_ALU_or_MEM;        // Just waiting for !mem_wbusy
             system_mode                           <= eSystemMode_Super;
             registers[eSystemMode_Super][eReg_PC] <= RESET_ADDRESS;
+            PC                                    <= RESET_ADDRESS;
         end 
         else
         begin
@@ -282,9 +286,13 @@ module ember
 
                 active_state[eExecuteInstruction_bit]: 
                     begin
-//                       PC <= PC_new;
+                        PC <= PC_new;
+                        
+                        // TODO: just force it here for now...will need to save back into register
+                        registers[eSystemMode_Super][eReg_PC] <= PC_new;
+                        
 //                       active_state <= waiting_for_data ? eState_Wait_ALU_or_MEM : eState_FetchInstruction;
-                       active_state <= eState_FetchInstruction;
+                        active_state <= eState_FetchInstruction;
                     end
 
                 active_state[eWait_ALU_or_MEM_bit]: 
