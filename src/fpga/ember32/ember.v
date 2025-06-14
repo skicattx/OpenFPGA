@@ -99,15 +99,15 @@ module ember
 
     // State Machine
     localparam eFetchInstruction_bit        = 0;
-    localparam eWait_FetchInstruction_bit   = 1;
+    localparam eFetchInstruction_Wait_bit   = 1;    // Wait on memory fetch (as needed)
     localparam eExecuteInstruction_bit      = 2;
-    localparam eWait_ALU_or_MEM_bit         = 3;
+    localparam eExecuteInstruction_Wait_bit = 3;    // Wait on memory fetch/write or ALU (as needed)
     localparam eStateCount                  = 4;
     
-    localparam eState_FetchInstruction      = 1 << eFetchInstruction_bit;
-    localparam eState_Wait_FetchInstruction = 1 << eWait_FetchInstruction_bit;
-    localparam eState_ExecuteInstruction    = 1 << eExecuteInstruction_bit;
-    localparam eState_Wait_ALU_or_MEM       = 1 << eWait_ALU_or_MEM_bit;
+    localparam eState_FetchInstruction          = 4'b0001 << eFetchInstruction_bit;
+    localparam eState_FetchInstruction_Wait     = 4'b0001 << eFetchInstruction_Wait_bit;
+    localparam eState_ExecuteInstruction        = 4'b0001 << eExecuteInstruction_bit;
+    localparam eState_ExecuteInstruction_Wait   = 4'b0001 << eExecuteInstruction_Wait_bit;
     
 //    localparam eState_FetchInstruction      = 4'b0001 << eFetchInstruction_bit;
 //    localparam eState_Wait_FetchInstruction = 4'b0001 << eWait_FetchInstruction_bit;
@@ -234,36 +234,29 @@ module ember
     
     wire [31:0] PC_new = inst_branch ? PC_branch : PC_plus4;
     
-//    isJALR           ? {aluPlus[ADDR_WIDTH-1:1],1'b0} :
-//    jumpToPCplusImm  ? PCplusImm :
-//    PCplus4;
-    
     
     wire [31:0] load_store_address = 0;//srcA_val + addr_offset; // Lowest 2 bits will be used for mask/shift for aligned memory access
-    
-    
-    
-    
     
 
 
     //*************************************************************************
     // State Machine (ONEHOT)
-    
-    wire waiting_for_data = inst_load | inst_store | alu_busy;      // Hold execution state for data to get where it's supposed to go
+    wire fetch_waiting_for_data = mem_read_wait;                             // Hold fetch state for load operation
+    wire execute_needs_to_wait  = alu_busy | inst_load | inst_store;         // Execution will need to wait for data 
+    wire execute_waiting        = alu_busy | mem_read_wait | mem_write_wait; // Execution is waiting for data to get where it's supposed to go
     
     
     reg [eStateCount-1:0] active_state; // (* onehot *)
-//    reg [3:0] active_state; // (* onehot *)
     
-    assign mem_address_out = active_state[eFetchInstruction_bit] | active_state[eWait_FetchInstruction_bit] ? PC : {load_store_address[31:2], 2'b00};
+    assign mem_address_out = (active_state[eFetchInstruction_bit] | active_state[eFetchInstruction_Wait_bit]) ? PC : {load_store_address[31:2], 2'b00};
+//    assign mem_address_out = PC;
 
 
     always @(posedge sys_clk) 
     begin
         if(!sys_rst_n) 
         begin
-            active_state                          <= eState_Wait_ALU_or_MEM;        // Just waiting for !mem_wbusy
+            active_state                          <= eState_ExecuteInstruction_Wait;        // Just waiting for !mem_wbusy
             system_mode                           <= eSystemMode_Super;
             registers[eSystemMode_Super][eReg_PC] <= RESET_ADDRESS;
             PC                                    <= RESET_ADDRESS;
@@ -273,14 +266,19 @@ module ember
 //            (* parallel_case *)
             case(1'b1) // synthesis parallel_case 
 
-                active_state[eWait_FetchInstruction_bit]: 
+
+                active_state[eFetchInstruction_bit]: 
                     begin
-                        if (!mem_read_wait) 
+                        active_state <= eState_FetchInstruction_Wait;
+                    end
+
+                active_state[eFetchInstruction_Wait_bit]: 
+                    begin
+                        if (!fetch_waiting_for_data) 
                         begin 
                             srcA_val <= registers[system_mode & reg_srcA[5]][reg_srcA[4:0]];
                             srcB_val <= registers[system_mode][reg_srcB];
-//                            instr <= mem_rdata[31:2]; // Bits 0 and 1 are ignored (see
-                            active_state <= eState_ExecuteInstruction;         // also the declaration of instr).
+                            active_state <= eState_ExecuteInstruction;
                         end
                     end
 
@@ -291,21 +289,16 @@ module ember
                         // TODO: just force it here for now...will need to save back into register
                         registers[eSystemMode_Super][eReg_PC] <= PC_new;
                         
-//                       active_state <= waiting_for_data ? eState_Wait_ALU_or_MEM : eState_FetchInstruction;
+//                       active_state <= execute_needs_to_wait ? eState_ExecuteInstruction_Wait : eState_FetchInstruction;
                         active_state <= eState_FetchInstruction;
                     end
 
-                active_state[eWait_ALU_or_MEM_bit]: 
+                active_state[eExecuteInstruction_Wait_bit]: 
                     begin
-                        if (!alu_busy & !mem_read_wait & !mem_write_wait) 
+                        if (!execute_waiting) 
                             active_state <= eState_FetchInstruction;
                     end
-
-                default: 
-                    begin // FETCH_INSTR
-                        active_state <= eState_Wait_FetchInstruction;
-                    end
-                
+            
             endcase
         end
     end

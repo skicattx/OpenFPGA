@@ -86,3 +86,7 @@ src/fpga/simulation/questa/rtl_work/\@_opt/_viscom/.viscom_elab_file
 src/fpga/simulation/questa/vlog.opt
 
 src/fpga/simulation/questa/vsim.wlf
+
+src/fpga/output_files/
+
+src/fpga/simulation/questa/rtl_work/
