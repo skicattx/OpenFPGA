@@ -61,6 +61,46 @@ module system_tb;
         $stop;
     end
 
+    
+
+    // For simulation
+    reg [31:0] i, d, dummy1, dummy2, row[0:16];
+    integer ihexfile;
+    
+    initial 
+    begin
+//        for( i = 0; i < 256; i = i + 1 ) 
+//        begin
+//            system.ROM.reg_array[i][7:0]   <= (i<<2);
+//            system.ROM.reg_array[i][15:8]  <= (i<<2)+1;
+//            system.ROM.reg_array[i][23:16] <= (i<<2)+2;
+//            system.ROM.reg_array[i][31:24] <= (i<<2)+3;
+//        end
+        
+        ihexfile=$fopen("UserProgram.hex","r"); 
+        i = $fscanf(ihexfile, ":%8h%6h\r\n", dummy1, dummy2);
+        i=0;
+        while(($fscanf(ihexfile, ":%8h%8h%8h%8h%8h", dummy1, row[0], row[1], row[2], row[3]) > 1) && i < 256)
+        begin     
+            system.ROM.reg_array[i]   = {row[0][7:0], row[0][15:8], row[0][23:16], row[0][31:24]};
+    	    system.ROM.reg_array[i+1] = {row[1][7:0], row[1][15:8], row[1][23:16], row[1][31:24]};
+    	    system.ROM.reg_array[i+2] = {row[2][7:0], row[2][15:8], row[2][23:16], row[2][31:24]};
+    	    system.ROM.reg_array[i+3] = {row[3][7:0], row[3][15:8], row[3][23:16], row[3][31:24]};
+            i=i+4;            
+        end
+
+        
+        $fclose(ihexfile);
+
+//       $readmemh("UserProgram.hex", reg_array, 0);    
+    end
+
+    
+    
+    
+    
+    
+    
 
     always #1 sys_clk = ~sys_clk;
     

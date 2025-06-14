@@ -50,16 +50,6 @@ module SysROM(
 //    reg [31:0] reg_array [2**13-1:0];
     reg [31:0] reg_array [255:0]; // TODO: Just 1024 bytes for now...
 
-    // For simulation
-    integer i;
-    initial begin
-        for( i = 0; i < 256; i = i + 1 ) begin
-            reg_array[i][7:0]   <= (i<<2);
-            reg_array[i][15:8]  <= (i<<2)+1;
-            reg_array[i][23:16] <= (i<<2)+2;
-            reg_array[i][31:24] <= (i<<2)+3;
-        end
-    end
 
     always @(posedge sys_clk) 
     begin
