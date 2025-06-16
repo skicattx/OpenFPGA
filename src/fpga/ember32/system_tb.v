@@ -49,22 +49,26 @@ module system_tb;
     initial begin
         sys_clk = 0;
         sys_rst_n = 1;
-        #3;
+        #0.4;
         sys_rst_n = 0;
-        #2.3;
-//        $display("mem_address=$%8h (mem_data_write==$%8h, mem_data_write_mask=4'b%4b, mem_write_strobe=%d) (mem_data_read=$%8h, mem_read_strobe=%d)", mem_address, mem_data_write, mem_data_write_mask, mem_write_strobe, mem_data_read, mem_read_strobe);
+        #2.0;
         sys_rst_n = 1;
-        #5;
-//        $display("mem_address=$%8h (mem_data_write==$%8h, mem_data_write_mask=4'b%4b, mem_write_strobe=%d) (mem_data_read=$%8h, mem_read_strobe=%d)", mem_address, mem_data_write, mem_data_write_mask, mem_write_strobe, mem_data_read, mem_read_strobe);
 
-        #100;
-        $stop;
+        #40;
+//        $stop;
     end
 
-    
-
+    integer clocks = 0;
+    always 
+    begin
+        #1;
+//        if (clocks < 40) 
+            sys_clk = ~sys_clk;
+        clocks = clocks + 1;
+    end
+        
     // For simulation
-    reg [31:0] i, d, dummy1, dummy2, row[0:16];
+    integer i, d, dummy1, dummy2, row[0:3];
     integer ihexfile;
     
     initial 
@@ -79,8 +83,12 @@ module system_tb;
         
         ihexfile=$fopen("UserProgram.hex","r"); 
         i = $fscanf(ihexfile, ":%8h%6h\r\n", dummy1, dummy2);
+        i = $fscanf(ihexfile, "%2h%2h", dummy1, dummy2);
+
+
+
         i=0;
-        while(($fscanf(ihexfile, ":%8h%8h%8h%8h%8h", dummy1, row[0], row[1], row[2], row[3]) > 1) && i < 256)
+        while(($fscanf(ihexfile, ":%8h%8h%8h%8h%8h%2h\r\n", dummy1, row[0], row[1], row[2], row[3], dummy2) > 1) && i < 256)
         begin     
             system.ROM.reg_array[i]   = {row[0][7:0], row[0][15:8], row[0][23:16], row[0][31:24]};
     	    system.ROM.reg_array[i+1] = {row[1][7:0], row[1][15:8], row[1][23:16], row[1][31:24]};
@@ -94,18 +102,6 @@ module system_tb;
 
 //       $readmemh("UserProgram.hex", reg_array, 0);    
     end
-
-    
-    
-    
-    
-    
-    
-
-    always #1 sys_clk = ~sys_clk;
-    
-    
-    
     
 endmodule
         
