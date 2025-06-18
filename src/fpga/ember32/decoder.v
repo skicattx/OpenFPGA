@@ -106,15 +106,15 @@ module decoder(
             
         output [5:0]    reg_dest,               // {user}(high}{Output/Destination register index}
         output [5:0]    reg_srcA,               // {user}(high}{Src register A index (Also Branch reg)}
-        output [4:0]    reg_srcB,               // Src register B index
+        output [3:0]    reg_srcB,               // Src register B index
                 
         output          imm_val_en,             // Immediate value used instead of srcB index in ALU 
         output [31:0]   imm_value               // Sign or 0 extended immediate value (masked from data_width code)
       
     );
 
-    assign  inst_halt    = (instruction[31:26] == 6'b000000);
-    assign  inst_noop    = (instruction[31:26] == 6'b000001);
+    assign  inst_noop    = (instruction[31:26] == 6'b000000);
+    assign  inst_halt    = (instruction[31:26] == 6'b000001);
     assign  inst_trap    = (instruction[31:26] == 6'b000010);
     assign  inst_rtu     = (instruction[31:26] == 6'b000011);
     assign  inst_branch  = (instruction[31:27] == 5'b00011);
@@ -137,10 +137,8 @@ module decoder(
     assign  addr_offset          = {{19{instruction[13]}}, instruction[12:0]};
         
     assign  reg_dest             = inst_mov ? instruction[22:17] : {{2'b00}, instruction[22:19]};   // Mov instruction has two additional index bits
-    assign  reg_srcA             = inst_mov ? instruction[16:11] : {{2'b00}, instruction[18:15]};   // Mov instruction has two additional index bits
-    
-    assign  reg_srcB             = {{1'b0}, instruction[13:10]};
-        
+    assign  reg_srcA             = inst_mov ? instruction[16:11] : {{2'b00}, instruction[18:15]};   // Mov instruction has two additional index bits    
+    assign  reg_srcB             = instruction[13:10];        
         
     assign  imm_val_en           = instruction[14];         
     

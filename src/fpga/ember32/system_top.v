@@ -65,7 +65,7 @@ module system_top(
    
     // Never wait for now
     assign  mem_write_wait = 0;
-
+    assign  sys_nmi_n = 1;
 
     
     //*************************************************************************
@@ -80,6 +80,7 @@ module system_top(
     ember CPU(
         .sys_clk(sys_clk),
         .sys_rst_n(sys_rst_n),
+        .sys_nmi_n(sys_nmi_n),
 
         .mem_address_out(mem_address),    
         .mem_data_write(mem_data_write),       

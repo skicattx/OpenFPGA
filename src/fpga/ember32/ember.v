@@ -40,6 +40,7 @@ module ember
     ( 
         input          sys_clk,             // System Clock
         input          sys_rst_n,           // System _Reset
+        input          sys_nmi_n,           // Non-Maskable Interrupt (low on clk pos will set X bit in uCC - super PC on next clk)
 
         output [31:0]  mem_address_out,     // Address to read/write
         output [31:0]  mem_data_write,        // Data output/write
@@ -84,8 +85,8 @@ module ember
     localparam eCC_X            = 1<<6;     // X - (clears GIE)5, // G - Global Interrupt Enable/!Supervisor Mode (Set/Unset to switch to User/Super Mode) (Setting also clears D, X, T, )
     localparam eCC_T            = 1<<7;     // T - User Interrupt (Soft Interrupt, clears GIE)0, // EQ/Z  -- NE
 
-    localparam eCC_AccVR        = 1<<16;    // Access Violation Read
-    localparam eCC_AccVW        = 1<<17;    // Access Violation Write
+//    localparam eCC_AccVR        = 1<<16;    // Access Violation Read
+//    localparam eCC_AccVW        = 1<<17;    // Access Violation Write
 
     // Condition Codes
     localparam eBranch_NA       = 3'b000;   // Always
@@ -118,15 +119,15 @@ module ember
     //*************************************************************************
     // CPU State Registers
     reg         system_mode;
-    reg  [31:0] registers[0:1][0:31]; // [supervisor/user][register index]
+    reg  [31:0] registers[0:1][0:17];//31]; // [supervisor/user][register index]
     
     reg  [31:0] srcA_val;               // Src A Value 
     reg  [31:0] srcB_val;               // Src B/Imm Value
     wire [31:0] alu_result;             // Result Value    
+    wire [5:0]  alu_cc;                 // alu condition and exception bits     
     wire        alu_busy;               // High when ALU is busy (divide, etc.)
 
-    
-    
+   
     
     //*************************************************************************
     // Opcode params       
@@ -157,7 +158,7 @@ module ember
         
     wire [5:0]  reg_dest;
     wire [5:0]  reg_srcA;
-    wire [4:0]  reg_srcB;
+    wire [3:0]  reg_srcB;
         
     wire        imm_val_en;
     wire [31:0] imm_value;
@@ -195,7 +196,6 @@ module ember
         .imm_value(imm_value)
     );
 
-   
 
     //*************************************************************************
     // ALU Implementation
@@ -205,7 +205,9 @@ module ember
         
         .srcA_val(srcA_val),
         .srcB_val(srcB_val),
+        
         .result(alu_result),
+        .cc(alu_cc),
         
         .busy(alu_busy)
     );
@@ -214,22 +216,23 @@ module ember
     
     //*************************************************************************
     //
-    wire [3:0] cc = registers[system_mode][eReg_CC][3:0];
     wire predicate = (branch_cond == eBranch_NA) |
-                     (cc & eCC_Z ? branch_cond == eBranch_EQ : branch_cond == eBranch_NE) |
-                     (cc & eCC_C ? branch_cond == eBranch_C  : branch_cond == eBranch_NC) |
-                     (cc & eCC_N ? branch_cond == eBranch_LT : branch_cond == eBranch_GE) |
-                     (cc & eCC_V && branch_cond == eBranch_V);
+                     (alu_cc & eCC_Z ? branch_cond == eBranch_EQ : branch_cond == eBranch_NE) |
+                     (alu_cc & eCC_C ? branch_cond == eBranch_C  : branch_cond == eBranch_NC) |
+                     (alu_cc & eCC_N ? branch_cond == eBranch_LT : branch_cond == eBranch_GE) |
+                     (alu_cc & eCC_V && branch_cond == eBranch_V);
     
+
+    // Latches for these, as the wire from the decode is only valid for the Execute, not ExecuteWait State
+    reg load_in_progress;
+    reg store_in_progress;
     
     
     //*************************************************************************
     // Various Program Counter, Load, Store Address Possibilities
-    reg  [31:0] PC;                                 // The active PC (during fetch states)
-
-    wire [31:0] PC_plus4 = registers[eSystemMode_Super][eReg_PC] + 4;                  // The next PC if we don't branch, or swap system modes, breakpoint handler, etc.
+    wire [31:0] PC_plus4 = registers[system_mode][eReg_PC] + 4;                  // The next PC if we don't branch, or swap system modes, breakpoint handler, etc.
     
-    wire [31:0] PC_branch = registers[eSystemMode_Super][eReg_PC] + branch_offset;     // The next PC if we're branching
+    wire [31:0] PC_branch = registers[system_mode][eReg_PC] + branch_offset;     // The next PC if we're branching
     
     
     wire [31:0] PC_new = inst_branch ? PC_branch : PC_plus4;
@@ -241,16 +244,33 @@ module ember
 
     //*************************************************************************
     // State Machine (ONEHOT)
-    wire fetch_waiting_for_data = mem_read_wait;                             // Hold fetch state for load operation
-    wire execute_needs_to_wait  = alu_busy | inst_load | inst_store;         // Execution will need to wait for data 
-    wire execute_waiting        = alu_busy | mem_read_wait | mem_write_wait; // Execution is waiting for data to get where it's supposed to go
+    wire fetch_waiting_for_data = mem_read_wait;                                    // Hold fetch state for load operation
+    wire execute_needs_to_wait  = alu_busy | load_in_progress | store_in_progress;  // Execution will need to wait for data 
+    wire execute_waiting        = alu_busy | mem_read_wait | mem_write_wait;        // Execution is waiting for data to get where it's supposed to go
     
-    
+    // Active CPU State
     reg [eStateCount-1:0] active_state; // (* onehot *)
-    
-    assign mem_address_out = (active_state[eFetchInstruction_bit] | active_state[eFetchInstruction_Wait_bit]) ? PC : {load_store_address[31:2], 2'b00};
-//    assign mem_address_out = PC;
 
+    // Address that is always active on the address bus
+    assign mem_address_out = (active_state[eFetchInstruction_bit] | active_state[eFetchInstruction_Wait_bit]) ? registers[system_mode][eReg_PC] : {load_store_address[31:2], 2'b00};
+    
+    // Value that will be written to the dest register (used only if this instruction writes to a register reg_result_en/reg_result_high_en)
+    wire [31:0] reg_result =  inst_ldi        ? imm_value  : 
+                              inst_mov        ? srcA_val   : alu_result;
+    wire reg_result_en = inst_ldi | inst_mov; // TODO: BRA/BRL + predicate?
+    wire reg_result_high_en = inst_ldi & ldi_high_half;
+
+    // Compute the CC values for the next instruction (User or Super)
+    wire [7:0] user_cc_new = (system_mode == eSystemMode_User) ?
+                             (alu_cc | (inst_trap ? eCC_T : 0) | (inst_rtu|inst_illegal|inst_halt ? eCC_X : 0)) | (inst_trap|inst_rtu|inst_illegal|inst_halt|!sys_nmi_n ? 0 : eCC_G) :
+                             registers[eSystemMode_User][eReg_CC][7:0] | (inst_rtu ? eCC_G : 0);
+
+    wire [7:0] super_cc_new = alu_cc | (inst_illegal|inst_halt ? eCC_X : 0);
+
+    // Based on the computed CC flag, which mode for the next instruction
+    wire system_mode_new = (user_cc_new & eCC_G) ? eSystemMode_User : eSystemMode_Super;
+
+    wire temp_mov_reg_bank = system_mode | reg_dest[5];
 
     always @(posedge sys_clk) 
     begin
@@ -259,7 +279,10 @@ module ember
             active_state                          <= eState_ExecuteInstruction_Wait;        // Just waiting for !mem_wbusy
             system_mode                           <= eSystemMode_Super;
             registers[eSystemMode_Super][eReg_PC] <= RESET_ADDRESS;
-            PC                                    <= RESET_ADDRESS;
+            registers[eSystemMode_Super][eReg_CC] <= 8'b00000000;
+            registers[eSystemMode_User][eReg_CC ] <= 8'b00000000;
+            load_in_progress                      <= 1'b0;
+            store_in_progress                     <= 1'b0;
         end 
         else
         begin
@@ -276,27 +299,46 @@ module ember
                     begin
                         if (!fetch_waiting_for_data) 
                         begin 
-                            srcA_val <= registers[system_mode & reg_srcA[5]][reg_srcA[4:0]];
-                            srcB_val <= registers[system_mode][reg_srcB];
-                            active_state <= eState_ExecuteInstruction;
+                            srcA_val            <= registers[system_mode | reg_srcA[5]][reg_srcA[4:0]];
+                            srcB_val            <= registers[system_mode][reg_srcB];
+                            active_state        <= eState_ExecuteInstruction;
+                            
+                            load_in_progress    <= inst_load;
+                            store_in_progress   <= inst_store;
                         end
                     end
 
                 active_state[eExecuteInstruction_bit]: 
                     begin
-                        PC <= PC_new;
-                        
-                        // TODO: just force it here for now...will need to save back into register
-                        registers[eSystemMode_Super][eReg_PC] <= PC_new;
-                        
-//                       active_state <= execute_needs_to_wait ? eState_ExecuteInstruction_Wait : eState_FetchInstruction;
-                        active_state <= eState_FetchInstruction;
+                        registers[system_mode][eReg_PC] <= PC_new;
+
+                        if (execute_needs_to_wait) 
+                            active_state <= eState_ExecuteInstruction_Wait;
+                        else
+                        begin
+                            // Write any dest register?
+                            if (reg_result_high_en)
+                                registers[system_mode][reg_dest[4:0]][31:16] <= reg_result[31:16];
+                            else if (reg_result_en)
+                                registers[temp_mov_reg_bank][reg_dest[4:0]] <= reg_result; // Note, if this is a MOV pc, this takes priority over the assignment of PC_new above
+//                                registers[system_mode | reg_dest[5]][reg_dest[4:0]] <= reg_result; // Note, if this is a MOV pc, this takes priority over the assignment of PC_new above
+                            
+                            // Write new CC values
+                            registers[eSystemMode_User][eReg_CC][7:0] <= user_cc_new;
+                            if (system_mode == eSystemMode_Super)
+                                registers[eSystemMode_Super][eReg_CC][7:0] <= super_cc_new;
+
+                            system_mode <= system_mode_new;                         
+                            active_state <= eState_FetchInstruction;
+                        end
                     end
 
                 active_state[eExecuteInstruction_Wait_bit]: 
                     begin
                         if (!execute_waiting) 
                             active_state <= eState_FetchInstruction;
+
+                            // TODO: write result when finished to reg, PC, or memory, etc.
                     end
             
             endcase
