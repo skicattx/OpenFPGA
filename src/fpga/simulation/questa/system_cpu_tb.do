@@ -32,27 +32,61 @@ radix define Width {
 -default hex
 }
 
+radix define OpCode {
+6'h00 "nop"  -color #FF7618,
+6'h01 "halt" -color #FF7618,
+6'h02 "trap" -color #FF7618,
+6'h03 "rtu"  -color #FF7618,
+6'h06 "bra"  -color #FFB918,
+6'h07 "brl"  -color #FFB918,
+6'h0A "mov"  -color #FFDD18,
+6'h0B "ldi"  -color #FF9918,
+6'h0E "ld"   -color #FF5518,
+6'h0F "st"   -color #FF5518,
+6'h10 "add"  -color #FF9618,
+6'h11 "sub"  -color #FF9618,
+6'h12 "mul"  -color #FF9618,
+6'h13 "mhs"  -color #FF9618,
+6'h14 "mhu"  -color #FF9618,
+6'h15 "div"  -color #FF9618,
+6'h16 "divu" -color #FF9618,
+6'h19 "and"  -color #FF9618,
+6'h1a "or"   -color #FF9618,
+6'h1b "xor"  -color #FF9618,
+6'h1c "lsr"  -color #FF9618,
+6'h1d "lsl"  -color #FF9618,
+6'h1e "asr"  -color #FF9618,
+-default hex
+}
+
 
 add wave -color #FF22FF sim:/system_tb/system/CPU/sys_clk
 add wave -color #AAAAAA sim:/system_tb/system/CPU/sys_rst_n
 
-add wave -divider OpCode
+add wave -divider "OpCode Decoder"
 add wave sim:/system_tb/system/CPU/instruction_decoder/instruction
+add wave -radix OpCode sim:/system_tb/system/CPU/instruction_decoder/inst_opcode
 add wave -radix Width sim:/system_tb/system/CPU/instruction_decoder/data_width
-add wave sim:/system_tb/system/CPU/instruction_decoder/inst_noop
-add wave sim:/system_tb/system/CPU/instruction_decoder/inst_ldi
-add wave sim:/system_tb/system/CPU/instruction_decoder/inst_mov
-add wave sim:/system_tb/system/CPU/instruction_decoder/inst_alu
-add wave sim:/system_tb/system/CPU/instruction_decoder/inst_trap
-add wave sim:/system_tb/system/CPU/instruction_decoder/inst_rtu
-add wave sim:/system_tb/system/CPU/instruction_decoder/inst_halt
-add wave sim:/system_tb/system/CPU/instruction_decoder/ldi_high_half
-add wave -color #3333FF sim:/system_tb/system/CPU/instruction_decoder/imm_val_en
-add wave -color #4444FF sim:/system_tb/system/CPU/instruction_decoder/imm_value
+
+add wave -group "Instruction Type"  \
+        sim:/system_tb/system/CPU/instruction_decoder/inst_noop \
+        sim:/system_tb/system/CPU/instruction_decoder/inst_halt \
+        sim:/system_tb/system/CPU/instruction_decoder/inst_trap \
+        sim:/system_tb/system/CPU/instruction_decoder/inst_rtu \
+        sim:/system_tb/system/CPU/instruction_decoder/inst_branch \
+        sim:/system_tb/system/CPU/instruction_decoder/inst_mov \
+        sim:/system_tb/system/CPU/instruction_decoder/inst_ldi \
+        sim:/system_tb/system/CPU/instruction_decoder/inst_load \
+        sim:/system_tb/system/CPU/instruction_decoder/inst_store \
+        sim:/system_tb/system/CPU/instruction_decoder/inst_alu 
+
 add wave -radix Register sim:/system_tb/system/CPU/instruction_decoder/reg_srcA
 add wave -radix Register sim:/system_tb/system/CPU/instruction_decoder/reg_srcB
 add wave -radix Register sim:/system_tb/system/CPU/instruction_decoder/reg_dest
-
+add wave -color #4444FF sim:/system_tb/system/CPU/instruction_decoder/imm_value
+add wave -color #3333FF sim:/system_tb/system/CPU/instruction_decoder/imm_val_en
+add wave sim:/system_tb/system/CPU/instruction_decoder/ldi_high_half
+add wave sim:/system_tb/system/CPU/instruction_decoder/inst_store
 
 add wave -divider "CPU State"
 add wave -color #11FF00 -radix CPUState sim:/system_tb/system/CPU/active_state

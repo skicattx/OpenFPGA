@@ -74,7 +74,7 @@ module ember
     localparam eReg_CC          = 16;       // 
     localparam eReg_PC          = 17;       // 
 
-    // Status Register Bits
+    // Status Register Bits (TODO: Move to header? `define?)
     localparam eCC_Z            = 1<<0;     // EQ/Z  -- NE
     localparam eCC_C            = 1<<1;     // C     -- NC
     localparam eCC_N            = 1<<2;     // LT/N -- GE
@@ -124,13 +124,14 @@ module ember
     reg  [31:0] srcA_val;               // Src A Value 
     reg  [31:0] srcB_val;               // Src B/Imm Value
     wire [31:0] alu_result;             // Result Value    
-    wire [5:0]  alu_cc;                 // alu condition and exception bits     
+    wire [4:0]  alu_cc;                 // alu condition and exception bits     
     wire        alu_busy;               // High when ALU is busy (divide, etc.)
 
    
     
     //*************************************************************************
     // Opcode params       
+    wire [5:0]  inst_opcode;
     wire        inst_illegal;
     wire        inst_noop;
     wire        inst_halt;
@@ -171,6 +172,7 @@ module ember
     decoder instruction_decoder(
         .instruction(mem_data_read),          // Non-registered, directly wired to memory input
         
+        .inst_opcode(inst_opcode),
         .inst_illegal(inst_illegal),
         .inst_noop(inst_noop),
         .inst_halt(inst_halt),
@@ -202,7 +204,7 @@ module ember
     alu alu( 
         .sys_clk(sys_clk),
         .sys_rst_n(sys_rst_n),
-        
+        .operation(inst_opcode[3:0]),
         .srcA_val(srcA_val),
         .srcB_val(srcB_val),
         
@@ -276,13 +278,16 @@ module ember
     begin
         if(!sys_rst_n) 
         begin
-            active_state                          <= eState_ExecuteInstruction_Wait;        // Just waiting for !mem_wbusy
-            system_mode                           <= eSystemMode_Super;
-            registers[eSystemMode_Super][eReg_PC] <= RESET_ADDRESS;
-            registers[eSystemMode_Super][eReg_CC] <= 8'b00000000;
-            registers[eSystemMode_User][eReg_CC ] <= 8'b00000000;
-            load_in_progress                      <= 1'b0;
-            store_in_progress                     <= 1'b0;
+            active_state        <= eState_ExecuteInstruction_Wait;        // Just waiting for !mem_wbusy
+            system_mode         <= eSystemMode_Super;
+            load_in_progress    <= 1'b0;
+            store_in_progress   <= 1'b0;
+
+            registers[eSystemMode_Super][eReg_PC]   <= RESET_ADDRESS;
+            registers[eSystemMode_Super][eReg_Zero] <= 8'b00000000;
+            registers[eSystemMode_Super][eReg_CC]   <= 8'b00000000;
+            registers[eSystemMode_User][eReg_Zero ] <= 8'b00000000;
+            registers[eSystemMode_User][eReg_CC ]   <= 8'b00000000;
         end 
         else
         begin

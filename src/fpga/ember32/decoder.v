@@ -81,6 +81,7 @@
 module decoder(
         input [31:0]    instruction,            // Active instruction word
                         
+        output [5:0]    inst_opcode,            // OpCode Bits
         output          inst_illegal,           // Illegal Instruction detected
         output          inst_noop,              // No-op instruction
         output          inst_halt,              // Halt instruction
@@ -113,6 +114,7 @@ module decoder(
       
     );
 
+    assign  inst_opcode  = instruction[31:26];
     assign  inst_noop    = (instruction[31:26] == 6'b000000);
     assign  inst_halt    = (instruction[31:26] == 6'b000001);
     assign  inst_trap    = (instruction[31:26] == 6'b000010);
