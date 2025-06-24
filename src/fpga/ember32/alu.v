@@ -37,6 +37,7 @@ module alu(
         input           sys_clk,    // System Clock (For Divide)
         input           sys_rst_n,  // System _Reset
         input [3:0]     operation,  // ALU Operation
+        input [2:0]     data_width, // ALU Operation data width 
     
         input [31:0]    srcA_val,   // Src A Value 
         input [31:0]    srcB_val,   // Src B/Imm Value
@@ -47,7 +48,8 @@ module alu(
         output          busy        // Operation (divide, etc.) needs more time
     );
 
-    
+    `include "ember.vh"
+    /*
     //*************************************************************************
     // Status Register Bits (TODO: Move to header? `define?)
     localparam eCC_Z    = 1<<0;     // EQ/Z  -- NE
@@ -57,82 +59,86 @@ module alu(
     localparam eCC_D    = 1<<4;     // D - Div 0
 
     // One Hot bits for operations
-    localparam add_bit  = 1<<'h0; 
-    localparam sub_bit  = 1<<'h1;
+    localparam add_bit  = 'h0; 
+    localparam sub_bit  = 'h1;
         
-    localparam mul_bit  = 1<<'h2; 
-    localparam mhs_bit  = 1<<'h3; 
-    localparam mhu_bit  = 1<<'h4; 
-    localparam div_bit  = 1<<'h5; 
-    localparam divu_bit = 1<<'h6; 
+    localparam mul_bit  = 'h2; 
+    localparam mhs_bit  = 'h3; 
+    localparam mhu_bit  = 'h4; 
+    localparam div_bit  = 'h5; 
+    localparam divu_bit = 'h6; 
     
-    localparam and_bit  = 1<<'h9; 
-    localparam or_bit   = 1<<'ha; 
-    localparam xor_bit  = 1<<'hb; 
-    localparam lsr_bit  = 1<<'hc; 
-    localparam lsl_bit  = 1<<'hd; 
-    localparam asr_bit  = 1<<'he; 
-
+    localparam and_bit  = 'h9; 
+    localparam or_bit   = 'ha; 
+    localparam xor_bit  = 'hb; 
+    localparam lsr_bit  = 'hc; 
+    localparam lsl_bit  = 'hd; 
+    localparam asr_bit  = 'he; 
+    
+    
+    localparam Width_bit_w  = 'h0;
+    localparam Width_bit_h  = 'h1;
+    localparam Width_bit_sh = 'h2;
+    localparam Width_bit_b  = 'h3;
+    localparam Width_bit_sb = 'h4;
+                           */
 
     //*************************************************************************
     // Do all the things in parallel
     wire [15:0] onehot_op = 1 << operation;
-    wire [7:0]  onehot_width = 1 << operation;
+    wire [7:0]  onehot_width = 1 << data_width;
     
     
     //*************************************************************************
-    wire mul_sign = onehot_op[mhs_bit];
+    // Always do signed mul, but set the 33rd bit to 1 or 0 depending on operation
+    wire signed [32:0] signedA = {onehot_op[mhs_bit] & srcA_val[31], srcA_val};
+    wire signed [32:0] signedB = {onehot_op[mhs_bit] & srcB_val[31], srcB_val};
+    wire signed [63:0] multiply = signedA * signedB;    
 
-    wire signed [32:0] signed1 = {mul_sign, srcA_val};
-    wire signed [32:0] signed2 = {mul_sign, srcB_val};
-    wire signed [63:0] multiply = signed1 * signed2;    
+    // ALU Ops
+    wire [32:0] sum_  = srcA_val + srcB_val;    
+    wire        sum_c = onehot_width[Width_bit_w] ? sum_[32] : onehot_width[Width_bit_h]|onehot_width[Width_bit_sh] ? sum_[16] : sum_[8];
+    wire [32:0] dif_  = srcA_val - srcB_val;    
+    wire        dif_c = onehot_width[Width_bit_w] ? dif_[32] : onehot_width[Width_bit_h]|onehot_width[Width_bit_sh] ? dif_[16] : dif_[8];
+    wire [31:0] and_ = srcA_val & srcB_val;    
+    wire [31:0] or_  = srcA_val | srcB_val;    
+    wire [31:0] xor_ = srcA_val ^ srcB_val;    
 
+    wire [31:0] lsr_ = onehot_width[Width_bit_w] ? srcA_val >> srcB_val[5:0] : onehot_width[Width_bit_h]|onehot_width[Width_bit_sh] ? srcA_val[15:0] >> srcB_val[4:0] : dif_[7:0] >> srcB_val[3:0];
+    wire [31:0] lsl_ = srcA_val << srcB_val[5:0];    
+    wire [31:0] asr_ = onehot_width[Width_bit_w] ? srcA_val >>> srcB_val[5:0] : onehot_width[Width_bit_h]|onehot_width[Width_bit_sh] ? srcA_val[15:0] >>> srcB_val[4:0] : dif_[7:0] >>> srcB_val[3:0];
 
-
-
-
-    wire zero;
-    wire carry;
-    wire negative;
-    wire overflow;
+    
+    // ALU Flags
+    wire zero = result==0;
+    wire carry = (onehot_op[add_bit] & sum_c) | (onehot_op[sub_bit] & dif_c);
+    wire negative = onehot_width[Width_bit_w] ? dif_[31] : onehot_width[Width_bit_h]|onehot_width[Width_bit_sh] ? dif_[15] : dif_[7];
+    wire overflow = 0; // TODO: Probably remove this?
     wire div_zero = 0;
 
     assign cc = (zero ? eCC_Z : 0) | (carry ? eCC_C : 0) | (negative ? eCC_N : 0) | (overflow ? eCC_V : 0) | (div_zero ? eCC_D : 0);
 
+    // ALU Result
+    assign result = 
+        (onehot_op[add_bit] ?  sum_[31:0] : 33'b0) |
+        (onehot_op[sub_bit] ?  dif_[31:0] : 33'b0) |
 
+        (onehot_op[mul_bit] ?  multiply[31:0]  : 33'b0) |
+        (onehot_op[mhs_bit] ?  multiply[63:32] : 33'b0) |
+        (onehot_op[mhu_bit] ?  multiply[63:32] : 33'b0) |
+        (onehot_op[div_bit] ?  32'b0 : 33'b0) |
+        (onehot_op[divu_bit] ? 32'b0 : 33'b0) |
 
+        (onehot_op[and_bit] ?  and_ : 32'b0) |
+        (onehot_op[or_bit]  ?  or_  : 32'b0) |
+        (onehot_op[xor_bit] ?  xor_ : 32'b0) |
+        (onehot_op[lsr_bit] ?  lsr_ : 32'b0) |
+        (onehot_op[lsl_bit] ?  lsl_ : 32'b0) |
+        (onehot_op[asr_bit] ?  asr_ : 32'b0);
+
+        
+    // Divide (TODO)
     assign busy = 0;    
-
-/*
-    //*************************************************************************
-    // Single Cycle ALU Operations
-    wire [31:0] aluOut_base =
-     (funct3Is[0]  ? instr[30] & instr[5] ? aluMinus[31:0] : aluPlus : 32'b0) |
-     (funct3Is[1]  ? leftshift                                       : 32'b0) |
-     (funct3Is[2]  ? {31'b0, LT}                                     : 32'b0) |
-     (funct3Is[3]  ? {31'b0, LTU}                                    : 32'b0) |
-     (funct3Is[4]  ? aluIn1 ^ aluIn2                                 : 32'b0) |
-     (funct3Is[5]  ? shifter                                         : 32'b0) |
-     (funct3Is[6]  ? aluIn1 | aluIn2                                 : 32'b0) |
-     (funct3Is[7]  ? aluIn1 & aluIn2                                 : 32'b0) ;
-
-   wire [31:0] aluOut_muldiv =
-     (  funct3Is[0]   ?  multiply[31: 0] : 32'b0) | // 0:MUL
-     ( |funct3Is[3:1] ?  multiply[63:32] : 32'b0) | // 1:MULH, 2:MULHSU, 3:MULHU
-     (  instr[14]     ?  div_sign ? -divResult : divResult : 32'b0) ; 
-                                                 // 4:DIV, 5:DIVU, 6:REM, 7:REMU
-   
-   wire [31:0] aluOut = isALUreg & funcM ? aluOut_muldiv : aluOut_base;
-
-*/
-
-
-
-
-
-
-
-
-
+  
 
 endmodule

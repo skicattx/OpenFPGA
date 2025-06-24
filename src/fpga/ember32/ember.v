@@ -74,8 +74,10 @@ module ember
     localparam eReg_CC          = 16;       // 
     localparam eReg_PC          = 17;       // 
 
+    `include "ember.vh"
+
     // Status Register Bits (TODO: Move to header? `define?)
-    localparam eCC_Z            = 1<<0;     // EQ/Z  -- NE
+/*    localparam eCC_Z            = 1<<0;     // EQ/Z  -- NE
     localparam eCC_C            = 1<<1;     // C     -- NC
     localparam eCC_N            = 1<<2;     // LT/N -- GE
     localparam eCC_V            = 1<<3;     // V
@@ -84,6 +86,7 @@ module ember
     localparam eCC_G            = 1<<5;     // G - Global Interrupt Enable/!Supervisor Mode (Set/Unset to switch to User/Super Mode) (Setting also clears D, X, T, )4, // D - (clears GIE)
     localparam eCC_X            = 1<<6;     // X - (clears GIE)5, // G - Global Interrupt Enable/!Supervisor Mode (Set/Unset to switch to User/Super Mode) (Setting also clears D, X, T, )
     localparam eCC_T            = 1<<7;     // T - User Interrupt (Soft Interrupt, clears GIE)0, // EQ/Z  -- NE
+*/
 
 //    localparam eCC_AccVR        = 1<<16;    // Access Violation Read
 //    localparam eCC_AccVW        = 1<<17;    // Access Violation Write
@@ -205,6 +208,7 @@ module ember
         .sys_clk(sys_clk),
         .sys_rst_n(sys_rst_n),
         .operation(inst_opcode[3:0]),
+        .data_width(data_width),
         .srcA_val(srcA_val),
         .srcB_val(srcB_val),
         
