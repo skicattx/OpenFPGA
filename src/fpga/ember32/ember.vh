@@ -31,8 +31,15 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //****************************************************************************
 
+
 //*************************************************************************
-// Status Register Bits
+// CPU System Modes
+localparam eSystemMode_Super    = 1'b0;        // 
+localparam eSystemMode_User     = 1'b1;        // 
+
+
+//*************************************************************************
+// Status Register Flag Values
 localparam eCC_Z    = 1<<0;     // EQ/Z  -- NE
 localparam eCC_C    = 1<<1;     // C     -- NC
 localparam eCC_N    = 1<<2;     // LT/N -- GE
@@ -43,7 +50,11 @@ localparam eCC_G    = 1<<5;     // G - Global Interrupt Enable/!Supervisor Mode 
 localparam eCC_X    = 1<<6;     // X - Exception Flag
 localparam eCC_T    = 1<<7;     // T - User Interrupt (Software Interrupt)
 
+//    localparam eCC_AccVR        = 1<<16;    // Access Violation Read
+//    localparam eCC_AccVW        = 1<<17;    // Access Violation Write
 
+
+//*************************************************************************
 // One Hot bits for ALU operations
 localparam add_bit  = 'h0; 
 localparam sub_bit  = 'h1;
@@ -62,6 +73,7 @@ localparam lsl_bit  = 'hd;
 localparam asr_bit  = 'he; 
 
 
+//*************************************************************************
 // One Hot bits for Data Width field
 localparam Width_bit_w  = 'h0;
 localparam Width_bit_h  = 'h1;
@@ -69,3 +81,14 @@ localparam Width_bit_sh = 'h2;
 localparam Width_bit_b  = 'h3;
 localparam Width_bit_sb = 'h4;
                            
+
+//*************************************************************************
+// Condition Code Values
+localparam eBranch_NA       = 3'b000;   // Always
+localparam eBranch_EQ       = 3'b001;   // (.eq or .z) Ra == Rb / Z
+localparam eBranch_NE       = 3'b010;   // (.ne or .nz) Ra != Rb / !Z
+localparam eBranch_LT       = 3'b011;   // (.lt or .ng) Ra < Rb && Ra-Rb < 0 (signed)
+localparam eBranch_GE       = 3'b100;   // (.ge or .p) Ra >= Rb && Ra-Rb >= 0 (signed)
+localparam eBranch_C        = 3'b101;   // (.c) Ra < Rb && Ra-Rb < 0 (unsigned)
+localparam eBranch_NC       = 3'b110;   // (.nc) Ra >= Rb && Ra - Rb >= 0 (unsigned)
+localparam eBranch_V        = 3'b111;   // (.v) Overflow

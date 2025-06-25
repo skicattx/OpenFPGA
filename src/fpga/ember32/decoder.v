@@ -98,7 +98,7 @@ module decoder(
         output          branch_imm_en,          // Immediate value used instead of srcA index  
         output [31:0]   branch_offset,          // Sign-extended 24-bit (22-bit*4) branch offset (in place of srcA)
                     
-        output [2:0]    data_width,             // Data read/write width code ]
+        output [7:0]    data_width_oh,          // Data read/write width code as a One Hot value
                     
         output          ldi_high_half,          // LDI writes only upper 16 bits of fully resolved immediate value that is returned
                     
@@ -113,6 +113,8 @@ module decoder(
         output [31:0]   imm_value               // Sign or 0 extended immediate value (masked from data_width code)
       
     );
+
+    `include "ember.vh"
 
     assign  inst_opcode  = instruction[31:26];
     assign  inst_noop    = (instruction[31:26] == 6'b000000);
@@ -131,7 +133,8 @@ module decoder(
     assign  branch_imm_en        = instruction[22];    
     assign  branch_offset        = {{9{instruction[21]}}, instruction[20:0], {2{1'b0}}};     
     
-    assign  data_width           = instruction[25:23];
+//    assign  data_width           = instruction[25:23];
+    assign  data_width_oh        = 1 << instruction[25:23];
         
     assign  ldi_high_half        = instruction[18];      
         
@@ -151,10 +154,10 @@ module decoder(
     wire [31:0] imm_14s  = {{19{instruction[13]}}, instruction[12:0]};  // 14-bit signed extended
     wire [31:0] imm_14u  = {{18{1'b0}},            instruction[13:0]};  // 14-bit unsigned extended
     
-    wire [31:0] imm32  = (data_width==`DATA_WIDTH_B)  ? imm_8u  :
-                         (data_width==`DATA_WIDTH_SB) ? imm_8s  :
-                         (data_width==`DATA_WIDTH_SH) ? imm_14s : 
-                                                    imm_14u;
+    wire [31:0] imm32  = data_width_oh[Width_bit_b]  ? imm_8u  :
+                         data_width_oh[Width_bit_sb] ? imm_8s  :
+                         data_width_oh[Width_bit_sh] ? imm_14s : 
+                                                       imm_14u;
 
     wire [31:0] imm_ldi_b   = ldi_high_half ? {{8{1'b0}},           instruction[7:0], {16{1'b0}}} : {{24{1'b0}},           instruction[7:0]}; // 8-bit unsigned extended to high half : 8-bit unsigned extended to word
     wire [31:0] imm_ldi_sb  = ldi_high_half ? {{9{instruction[7]}}, instruction[6:0], {16{1'b0}}} : {{25{instruction[7]}}, instruction[6:0]}; // 8-bit signed extended to high half   : 8-bit signed extended to word
@@ -162,13 +165,13 @@ module decoder(
     wire [31:0] imm_ldi_sh  = ldi_high_half ? {instruction[15:0],   {16{1'b0}}} : {{17{instruction[15]}}, instruction[14:0]};     // 16-bit to high half : 16-bit signed extended to word
     wire [31:0] imm_ldi_w   = ldi_high_half ? {instruction[15:0],   {16{1'b0}}} : {{16{instruction[16]}}, instruction[15:0]};     // 16-bit to high half : 17-bit sign extended to word
                                              
-    wire [31:0] imm_ldi = (data_width==`DATA_WIDTH_B)  ? imm_ldi_b  :
-                          (data_width==`DATA_WIDTH_SB) ? imm_ldi_sb :
-                          (data_width==`DATA_WIDTH_H)  ? imm_ldi_h  : 
-                          (data_width==`DATA_WIDTH_SH) ? imm_ldi_sh : 
-                                                         imm_ldi_w;
+    wire [31:0] imm_ldi = data_width_oh[Width_bit_b]  ? imm_ldi_b  :
+                          data_width_oh[Width_bit_sb] ? imm_ldi_sb :
+                          data_width_oh[Width_bit_h]  ? imm_ldi_h  : 
+                          data_width_oh[Width_bit_sh] ? imm_ldi_sh : 
+                                                        imm_ldi_w;
                              
     assign  imm_value = inst_ldi ? imm_ldi : imm32;       
-
             
 endmodule        
+

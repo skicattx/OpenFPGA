@@ -63,10 +63,6 @@ module ember
     assign mem_read_strobe = 1'b1; // TODO: connect to signals...
     
     //*************************************************************************
-    // #defines
-    localparam eSystemMode_Super    = 1'b0;        // 
-    localparam eSystemMode_User     = 1'b1;        // 
-
     // Special registers    
     localparam eReg_Zero        = 0;        // 
     localparam eReg_LR          = 14;       // 
@@ -76,30 +72,6 @@ module ember
 
     `include "ember.vh"
 
-    // Status Register Bits (TODO: Move to header? `define?)
-/*    localparam eCC_Z            = 1<<0;     // EQ/Z  -- NE
-    localparam eCC_C            = 1<<1;     // C     -- NC
-    localparam eCC_N            = 1<<2;     // LT/N -- GE
-    localparam eCC_V            = 1<<3;     // V
-    
-    localparam eCC_D            = 1<<4;     // D - (clears GIE)
-    localparam eCC_G            = 1<<5;     // G - Global Interrupt Enable/!Supervisor Mode (Set/Unset to switch to User/Super Mode) (Setting also clears D, X, T, )4, // D - (clears GIE)
-    localparam eCC_X            = 1<<6;     // X - (clears GIE)5, // G - Global Interrupt Enable/!Supervisor Mode (Set/Unset to switch to User/Super Mode) (Setting also clears D, X, T, )
-    localparam eCC_T            = 1<<7;     // T - User Interrupt (Soft Interrupt, clears GIE)0, // EQ/Z  -- NE
-*/
-
-//    localparam eCC_AccVR        = 1<<16;    // Access Violation Read
-//    localparam eCC_AccVW        = 1<<17;    // Access Violation Write
-
-    // Condition Codes
-    localparam eBranch_NA       = 3'b000;   // Always
-    localparam eBranch_EQ       = 3'b001;   // (.eq or .z) Ra == Rb / Z
-    localparam eBranch_NE       = 3'b010;   // (.ne or .nz) Ra != Rb / !Z
-    localparam eBranch_LT       = 3'b011;   // (.lt or .ng) Ra < Rb && Ra-Rb < 0 (signed)
-    localparam eBranch_GE       = 3'b100;   // (.ge or .p) Ra >= Rb && Ra-Rb >= 0 (signed)
-    localparam eBranch_C        = 3'b101;   // (.c) Ra < Rb && Ra-Rb < 0 (unsigned)
-    localparam eBranch_NC       = 3'b110;   // (.nc) Ra >= Rb && Ra - Rb >= 0 (unsigned)
-    localparam eBranch_V        = 3'b111;   // (.v) Overflow
 
     // State Machine
     localparam eFetchInstruction_bit        = 0;
@@ -113,11 +85,6 @@ module ember
     localparam eState_ExecuteInstruction        = 4'b0001 << eExecuteInstruction_bit;
     localparam eState_ExecuteInstruction_Wait   = 4'b0001 << eExecuteInstruction_Wait_bit;
     
-//    localparam eState_FetchInstruction      = 4'b0001 << eFetchInstruction_bit;
-//    localparam eState_Wait_FetchInstruction = 4'b0001 << eWait_FetchInstruction_bit;
-//    localparam eState_ExecuteInstruction    = 4'b0001 << eExecuteInstruction_bit;
-//    localparam eState_Wait_ALU_or_MEM       = 4'b0001 << eWait_ALU_or_MEM_bit;
-
     
     //*************************************************************************
     // CPU State Registers
@@ -127,9 +94,8 @@ module ember
     reg  [31:0] srcA_val;               // Src A Value 
     reg  [31:0] srcB_val;               // Src B/Imm Value
     wire [31:0] alu_result;             // Result Value    
-    wire [4:0]  alu_cc;                 // alu condition and exception bits     
+    wire [7:0]  alu_cc;                 // alu condition and exception bits     
     wire        alu_busy;               // High when ALU is busy (divide, etc.)
-
    
     
     //*************************************************************************
@@ -151,7 +117,8 @@ module ember
     wire        branch_imm_en;
     wire [31:0] branch_offset;
 
-    wire [2:0]  data_width;         
+    wire [7:0]  data_width_oh;
+
     wire [5:0]  reg_mov_dest;       
     wire [5:0]  reg_mov_src;       
 
@@ -166,9 +133,7 @@ module ember
         
     wire        imm_val_en;
     wire [31:0] imm_value;
-    
-
-    
+   
 
     //*************************************************************************
     // Instruction Decoder
@@ -190,7 +155,7 @@ module ember
         .branch_cond(branch_cond),
         .branch_imm_en(branch_imm_en),
         .branch_offset(branch_offset),
-        .data_width(data_width),
+        .data_width_oh(data_width_oh),
         .ldi_high_half(ldi_high_half),
         .addr_predec_postinc(addr_predec_postinc),
         .addr_offset(addr_offset),
@@ -201,14 +166,15 @@ module ember
         .imm_value(imm_value)
     );
 
+//    wire [15:0] onehot_op = 1 << operation;
 
     //*************************************************************************
     // ALU Implementation
     alu alu( 
         .sys_clk(sys_clk),
         .sys_rst_n(sys_rst_n),
-        .operation(inst_opcode[3:0]),
-        .data_width(data_width),
+        .operation_oh(1 << inst_opcode[3:0]),
+        .data_width_oh(data_width_oh),
         .srcA_val(srcA_val),
         .srcB_val(srcB_val),
         
@@ -219,16 +185,7 @@ module ember
     );
 
     
-    
     //*************************************************************************
-    //
-    wire predicate = (branch_cond == eBranch_NA) |
-                     (alu_cc & eCC_Z ? branch_cond == eBranch_EQ : branch_cond == eBranch_NE) |
-                     (alu_cc & eCC_C ? branch_cond == eBranch_C  : branch_cond == eBranch_NC) |
-                     (alu_cc & eCC_N ? branch_cond == eBranch_LT : branch_cond == eBranch_GE) |
-                     (alu_cc & eCC_V && branch_cond == eBranch_V);
-    
-
     // Latches for these, as the wire from the decode is only valid for the Execute, not ExecuteWait State
     reg load_in_progress;
     reg store_in_progress;
@@ -260,18 +217,32 @@ module ember
     // Address that is always active on the address bus
     assign mem_address_out = (active_state[eFetchInstruction_bit] | active_state[eFetchInstruction_Wait_bit]) ? registers[system_mode][eReg_PC] : {load_store_address[31:2], 2'b00};
     
+    // Load the Src A and B values
+    wire [31:0] srcA_val_new = registers[system_mode | reg_srcA[5]][reg_srcA[4:0]];
+    wire [31:0] srcB_val_new = imm_val_en ? imm_value : registers[system_mode][reg_srcB];
+        
     // Value that will be written to the dest register (used only if this instruction writes to a register reg_result_en/reg_result_high_en)
     wire [31:0] reg_result =  inst_ldi        ? imm_value  : 
                               inst_mov        ? srcA_val   : alu_result;
-    wire reg_result_en = inst_ldi | inst_mov; // TODO: BRA/BRL + predicate?
+    wire reg_result_en = inst_ldi | inst_mov | inst_alu; // TODO: BRA/BRL + predicate?
     wire reg_result_high_en = inst_ldi & ldi_high_half;
+
+    // Compute the CC values for the current instruction
+    wire [7:0] current_alu_cc = inst_alu ? alu_cc : registers[system_mode][eReg_CC][7:0];
+    wire predicate = (branch_cond == eBranch_NA) |
+                     (current_alu_cc & eCC_Z ? branch_cond == eBranch_EQ : branch_cond == eBranch_NE) |
+                     (current_alu_cc & eCC_C ? branch_cond == eBranch_C  : branch_cond == eBranch_NC) |
+                     (current_alu_cc & eCC_N ? branch_cond == eBranch_LT : branch_cond == eBranch_GE) |
+                     (current_alu_cc & eCC_V && branch_cond == eBranch_V);
+
+
 
     // Compute the CC values for the next instruction (User or Super)
     wire [7:0] user_cc_new = (system_mode == eSystemMode_User) ?
-                             (alu_cc | (inst_trap ? eCC_T : 0) | (inst_rtu|inst_illegal|inst_halt ? eCC_X : 0)) | (inst_trap|inst_rtu|inst_illegal|inst_halt|!sys_nmi_n ? 0 : eCC_G) :
+                             current_alu_cc | (inst_trap ? eCC_T : 0) | (inst_rtu|inst_illegal|inst_halt ? eCC_X : 0) | (inst_trap|inst_rtu|inst_illegal|inst_halt|!sys_nmi_n ? 0 : eCC_G) :
                              registers[eSystemMode_User][eReg_CC][7:0] | (inst_rtu ? eCC_G : 0);
 
-    wire [7:0] super_cc_new = alu_cc | (inst_illegal|inst_halt ? eCC_X : 0);
+    wire [7:0] super_cc_new = current_alu_cc | (inst_illegal|inst_halt ? eCC_X : 0);
 
     // Based on the computed CC flag, which mode for the next instruction
     wire system_mode_new = (user_cc_new & eCC_G) ? eSystemMode_User : eSystemMode_Super;
@@ -308,8 +279,8 @@ module ember
                     begin
                         if (!fetch_waiting_for_data) 
                         begin 
-                            srcA_val            <= registers[system_mode | reg_srcA[5]][reg_srcA[4:0]];
-                            srcB_val            <= registers[system_mode][reg_srcB];
+                            srcA_val            <= srcA_val_new;
+                            srcB_val            <= srcB_val_new;
                             active_state        <= eState_ExecuteInstruction;
                             
                             load_in_progress    <= inst_load;
@@ -326,11 +297,13 @@ module ember
                         else
                         begin
                             // Write any dest register?
-                            if (reg_result_high_en)
-                                registers[system_mode][reg_dest[4:0]][31:16] <= reg_result[31:16];
-                            else if (reg_result_en)
-                                registers[temp_mov_reg_bank][reg_dest[4:0]] <= reg_result; // Note, if this is a MOV pc, this takes priority over the assignment of PC_new above
-//                                registers[system_mode | reg_dest[5]][reg_dest[4:0]] <= reg_result; // Note, if this is a MOV pc, this takes priority over the assignment of PC_new above
+                            if (reg_dest[4:0] != 0)
+                            begin
+                                if (reg_result_high_en)
+                                    registers[system_mode][reg_dest[4:0]][31:16] <= reg_result[31:16];
+                                else if (reg_result_en)
+                                    registers[temp_mov_reg_bank][reg_dest[4:0]] <= reg_result; // Note, if this is a MOV pc, this takes priority over the assignment of PC_new above
+                            end
                             
                             // Write new CC values
                             registers[eSystemMode_User][eReg_CC][7:0] <= user_cc_new;

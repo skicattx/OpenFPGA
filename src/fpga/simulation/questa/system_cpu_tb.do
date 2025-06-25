@@ -8,27 +8,27 @@ vlog -vlog01compat -work work +incdir+D:/dev/git/OpenFPGA/src/fpga/ember32 {D:/d
 vsim -t 1ps -L altera_ver -L lpm_ver -L sgate_ver -L altera_mf_ver -L altera_lnsim_ver -L cyclonev_ver -L cyclonev_hssi_ver -L cyclonev_pcie_hip_ver -L rtl_work -L work -voptargs="+acc" system_tb
 
 radix define Register {
-'d0 "zero" -color #227777,
+'d0 "zero" -color #228799,
 'd1 "r1", 'd2 "r2", 'd3 "r3", 'd4 "r4", 'd5 "r5", 'd6 "r6",'d7 "r7", 'd8 "r8", 'd9 "r9", 'd10 "r10", 'd11 "r11", 'd12 "r12", 'd13 "r13",
-'d14 "lr"  -color #227788, 'd15 "sp"  -color #227788,
-'d16 "cc"  -color #227799, 'd17 "pc"  -color #227799,
+'d14 "lr"  -color #3277b8, 'd15 "sp"  -color #3277b8,
+'d16 "cc"  -color #4277c9, 'd17 "pc"  -color #4277c9,
 -default unsigned
 }
 
 radix define CPUState {
-4'b0001 "Fetch"   -color #11BB52,
+4'b0001 "Fetch"   -color #FFFFFF,
 4'b0010 "FWait"   -color #FF8824,
-4'b0100 "Execute" -color #11FF44,
+4'b0100 "Execute" -color #11BB52,
 4'b1000 "EWait"   -color #FF6644,
 -default hex
 }
 
 radix define Width {
-3'b000 ".w"  -color #AABB55,
-3'b001 ".h"  -color #CC8844,
-3'b010 ".sh" -color #DD8855,
-3'b011 ".b"  -color #DD7744,
-3'b100 ".sb" -color #DD7788,
+5'b00001 ".w"  -color #65BB75,
+5'b00010 ".h"  -color #76a854,
+5'b00100 ".sh" -color #87a875,
+5'b01000 ".b"  -color #987774,
+5'b10000 ".sb" -color #a977a8,
 -default hex
 }
 
@@ -65,8 +65,8 @@ add wave -color #AAAAAA sim:/system_tb/system/CPU/sys_rst_n
 
 add wave -divider "OpCode Decoder"
 add wave sim:/system_tb/system/CPU/instruction_decoder/instruction
-add wave -radix OpCode sim:/system_tb/system/CPU/instruction_decoder/inst_opcode
-add wave -radix Width sim:/system_tb/system/CPU/instruction_decoder/data_width
+add wave -radix OpCode sim:/system_tb/system/CPU/inst_opcode
+add wave -radix Width sim:/system_tb/system/CPU/instruction_decoder/data_width_oh
 
 add wave -group "Instruction Type"  \
         sim:/system_tb/system/CPU/instruction_decoder/inst_noop \
@@ -89,7 +89,7 @@ add wave sim:/system_tb/system/CPU/instruction_decoder/ldi_high_half
 add wave sim:/system_tb/system/CPU/instruction_decoder/inst_store
 
 add wave -divider "CPU State"
-add wave -color #11FF00 -radix CPUState sim:/system_tb/system/CPU/active_state
+add wave -radix CPUState sim:/system_tb/system/CPU/active_state
 add wave -color #66FF00 -radix binary sim:/system_tb/system/CPU/system_mode
 add wave -color #66FF00 -radix binary sim:/system_tb/system/CPU/system_mode_new
 add wave -color #99FF00 -radix binary sim:/system_tb/system/CPU/user_cc_new
@@ -111,6 +111,26 @@ add wave -group "User Registers"  \
         -label lr sim:/system_tb/system/CPU/registers[1][14] -label sp sim:/system_tb/system/CPU/registers[1][15] \
         -label "cc(TXGD VNCZ)" -radix binary sim:/system_tb/system/CPU/registers[1][16][7:0] -label pc -radix hex sim:/system_tb/system/CPU/registers[1][17] \
         -label r sim:/system_tb/system/CPU/registers[1]       
+
+add wave -divider "ALU"
+add wave sim:/system_tb/system/CPU/alu/sum_ 
+add wave sim:/system_tb/system/CPU/alu/sum_c 
+add wave sim:/system_tb/system/CPU/alu/dif_ 
+add wave sim:/system_tb/system/CPU/alu/dif_c 
+
+add wave sim:/system_tb/system/CPU/alu/signedA
+add wave sim:/system_tb/system/CPU/alu/signedB 
+add wave sim:/system_tb/system/CPU/alu/multiply 
+
+add wave -color #DFDD28 sim:/system_tb/system/CPU/alu/srcA_val_w 
+add wave -color #DFDD28 sim:/system_tb/system/CPU/alu/srcB_val_w 
+add wave -color #F0D0B0 sim:/system_tb/system/CPU/alu/alu_result 
+add wave -color #FFDDB8 sim:/system_tb/system/CPU/alu/result 
+
+add wave -color #6666FF sim:/system_tb/system/CPU/alu/zero
+add wave -color #6666FF sim:/system_tb/system/CPU/alu/carry 
+add wave -color #6666FF sim:/system_tb/system/CPU/alu/negative
+add wave -color #6666FF sim:/system_tb/system/CPU/alu/carry 
 
 view structure
 view signals
