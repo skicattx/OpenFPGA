@@ -1,9 +1,9 @@
-vlog -vlog01compat -work work +incdir+D:/dev/git/OpenFPGA/src/fpga/ember32 {D:/dev/git/OpenFPGA/src/fpga/ember32/decoder.v}
-vlog -vlog01compat -work work +incdir+D:/dev/git/OpenFPGA/src/fpga/ember32 {D:/dev/git/OpenFPGA/src/fpga/ember32/alu.v}
-vlog -vlog01compat -work work +incdir+D:/dev/git/OpenFPGA/src/fpga/ember32 {D:/dev/git/OpenFPGA/src/fpga/ember32/ember.v}
-vlog -vlog01compat -work work +incdir+D:/dev/git/OpenFPGA/src/fpga/ember32 {D:/dev/git/OpenFPGA/src/fpga/ember32/SysROM.v}
-vlog -vlog01compat -work work +incdir+D:/dev/git/OpenFPGA/src/fpga/ember32 {D:/dev/git/OpenFPGA/src/fpga/ember32/system_top.v}
-vlog -vlog01compat -work work +incdir+D:/dev/git/OpenFPGA/src/fpga/ember32 {D:/dev/git/OpenFPGA/src/fpga/ember32/system_tb.v}
+vlog -vlog01compat -work work +incdir+../../ember32 {../../ember32/decoder.v}
+vlog -vlog01compat -work work +incdir+../../ember32 {../../ember32/alu.v}
+vlog -vlog01compat -work work +incdir+../../ember32 {../../ember32/ember.v}
+vlog -vlog01compat -work work +incdir+../../ember32 {../../ember32/SysROM.v}
+vlog -vlog01compat -work work +incdir+../../ember32 {../../ember32/system_top.v}
+vlog -vlog01compat -work work +incdir+../../ember32 {../../ember32/system_tb.v}
 
 vsim -t 1ps -L altera_ver -L lpm_ver -L sgate_ver -L altera_mf_ver -L altera_lnsim_ver -L cyclonev_ver -L cyclonev_hssi_ver -L cyclonev_pcie_hip_ver -L rtl_work -L work -voptargs="+acc" system_tb
 
@@ -122,15 +122,17 @@ add wave sim:/system_tb/system/CPU/alu/signedA
 add wave sim:/system_tb/system/CPU/alu/signedB 
 add wave sim:/system_tb/system/CPU/alu/multiply 
 
-add wave -color #DFDD28 sim:/system_tb/system/CPU/alu/srcA_val_w 
-add wave -color #DFDD28 sim:/system_tb/system/CPU/alu/srcB_val_w 
+add wave -color #DFDD28 sim:/system_tb/system/CPU/alu/srcA_val_s 
+add wave -color #DFDD28 sim:/system_tb/system/CPU/alu/srcB_val_s 
+add wave -color #DFDD28 sim:/system_tb/system/CPU/alu/srcA_val_u 
+add wave -color #DFDD28 sim:/system_tb/system/CPU/alu/srcB_val_u 
 add wave -color #F0D0B0 sim:/system_tb/system/CPU/alu/alu_result 
 add wave -color #FFDDB8 sim:/system_tb/system/CPU/alu/result 
 
+add wave -color #6666FF sim:/system_tb/system/CPU/alu/overflow 
+add wave -color #6666FF sim:/system_tb/system/CPU/alu/result_sign
+add wave -color #6666FF sim:/system_tb/system/CPU/alu/carry 
 add wave -color #6666FF sim:/system_tb/system/CPU/alu/zero
-add wave -color #6666FF sim:/system_tb/system/CPU/alu/carry 
-add wave -color #6666FF sim:/system_tb/system/CPU/alu/negative
-add wave -color #6666FF sim:/system_tb/system/CPU/alu/carry 
 
 view structure
 view signals

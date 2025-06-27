@@ -51,52 +51,62 @@ module alu(
 
     `include "ember.vh"
     
-    // width mask input values
-    wire [31:0] srcA_val_w = 
-        data_width_oh[Width_bit_b] | data_width_oh[Width_bit_sb]  ? {{24'b0}, srcA_val[7:0]}  :
-//        data_width_oh[Width_bit_sb] ? {{24{srcA_val[7]}},  srcA_val[7:0]}  :
-        data_width_oh[Width_bit_h] | data_width_oh[Width_bit_sh] ? {{16'b0},  srcA_val[15:0]} :
-//        data_width_oh[Width_bit_sh] ? {{16{srcA_val[15]}}, srcA_val[15:0]} : 
+    // width mask input values (unsigned for add, sub, etc...signed for mul)
+    wire [31:0] srcA_val_u = 
+        data_width_oh[Width_bit_b] | data_width_oh[Width_bit_sb] ? {{24'b0}, srcA_val[7:0]}  :
+        data_width_oh[Width_bit_h] | data_width_oh[Width_bit_sh] ? {{16'b0}, srcA_val[15:0]} :
                                       srcA_val;
 
-    wire [31:0] srcB_val_w = 
+    wire [31:0] srcB_val_u = 
         data_width_oh[Width_bit_b] | data_width_oh[Width_bit_sb] ? {{24'b0}, srcB_val[7:0]}  :
-//        data_width_oh[Width_bit_sb] ? {{24{srcB_val[7]}},  srcB_val[7:0]}  :
         data_width_oh[Width_bit_h] | data_width_oh[Width_bit_sh] ? {{16'b0}, srcB_val[15:0]} :
-//        data_width_oh[Width_bit_sh] ? {{16{srcB_val[15]}}, srcB_val[15:0]} : 
                                       srcB_val;
 
+    wire [31:0] srcA_val_s, srcB_val_s;
+    assign {srcA_val_s, srcB_val_s} = 
+        data_width_oh[Width_bit_b]  ? { {{24'b0},            srcA_val[7:0]},  {{24'b0},            srcB_val[7:0]}  } :
+        data_width_oh[Width_bit_sb] ? { {{24{srcA_val[7]}},  srcA_val[7:0]},  {{24{srcB_val[7]}},  srcB_val[7:0]}  } :
+        data_width_oh[Width_bit_h]  ? { {{16'b0},            srcA_val[15:0]}, {{16'b0},            srcB_val[15:0]} } :
+        data_width_oh[Width_bit_sh] ? { {{16{srcA_val[15]}}, srcA_val[15:0]}, {{16{srcB_val[15]}}, srcB_val[15:0]} } : 
+                                      { srcA_val, srcB_val };
     
     //*************************************************************************
+    // ALU Ops
+
     // Always do signed mul, but set the 33rd bit to 1 or 0 depending on operation
-    wire signed [32:0] signedA = {operation_oh[mhs_bit] & srcA_val_w[31], srcA_val_w};
-    wire signed [32:0] signedB = {operation_oh[mhs_bit] & srcB_val_w[31], srcB_val_w};
+    wire signed_op = operation_oh[mhs_bit] | data_width_oh[Width_bit_sb] | data_width_oh[Width_bit_sh];
+    wire signed [32:0] signedA = {signed_op & srcA_val_s[31], srcA_val_s};
+    wire signed [32:0] signedB = {signed_op & srcB_val_s[31], srcB_val_s};
     wire signed [63:0] multiply = signedA * signedB;    
 
-    // ALU Ops
-    wire [32:0] sum_  = srcA_val_w + srcB_val_w;    
-//    wire        sum_c = sum_[32];
-    wire        sum_c = data_width_oh[Width_bit_w] ? sum_[32] : data_width_oh[Width_bit_h]|data_width_oh[Width_bit_sh] ? sum_[16] : sum_[8];
-    wire [32:0] dif_  = srcA_val_w - srcB_val_w;    
-//    wire        dif_c = dif_[32];
-    wire        dif_c = data_width_oh[Width_bit_w] ? dif_[32] : data_width_oh[Width_bit_h]|data_width_oh[Width_bit_sh] ? dif_[16] : dif_[8];
-    wire [31:0] and_ = srcA_val_w & srcB_val_w;    
-    wire [31:0] or_  = srcA_val_w | srcB_val_w;    
-    wire [31:0] xor_ = srcA_val_w ^ srcB_val_w;    
-
-    wire [31:0] lsr_ = data_width_oh[Width_bit_w] ? srcA_val_w >> srcB_val_w[5:0] : data_width_oh[Width_bit_h]|data_width_oh[Width_bit_sh] ? srcA_val_w[15:0] >> srcB_val_w[4:0] : dif_[7:0] >> srcB_val_w[3:0];
-    wire [31:0] lsl_ = srcA_val_w << srcB_val_w[5:0];    
-    wire [31:0] asr_ = data_width_oh[Width_bit_w] ? srcA_val_w >>> srcB_val_w[5:0] : data_width_oh[Width_bit_h]|data_width_oh[Width_bit_sh] ? srcA_val_w[15:0] >>> srcB_val_w[4:0] : dif_[7:0] >>> srcB_val_w[3:0];
-
+    wire [32:0] sum_  = srcA_val_u + srcB_val_u;
+    wire [32:0] dif_  = srcA_val_u - srcB_val_u;
     
     // ALU Flags
+    wire sum_c, dif_c, srcA_sign, srcB_sign, result_sign;
+    assign {sum_c, dif_c, srcA_sign, srcB_sign, result_sign } = 
+        data_width_oh[Width_bit_w] ?                             {sum_[32], dif_[32], srcA_val[31], srcB_val[31], result[31]} : 
+        data_width_oh[Width_bit_h]|data_width_oh[Width_bit_sh] ? {sum_[16], dif_[16], srcA_val[15], srcB_val[15], result[15]} : 
+                                                                 { sum_[8],  dif_[8],  srcA_val[7],  srcB_val[7],  result[7]};
+
+    wire overflow_add = !(srcA_sign ^ srcB_sign) & (srcA_sign ^ result_sign);
+    wire overflow_sub = (srcA_sign ^ srcB_sign) & (srcA_sign ^ result_sign);
+    wire overflow, carry;
+    assign {overflow, carry} = operation_oh[add_bit] ? {overflow_add, sum_c} : 
+                               operation_oh[sub_bit] ? {overflow_sub, dif_c} : {1'b0, 1'b0};
     wire zero = result==0;
-    wire carry = (operation_oh[add_bit] & sum_c) | (operation_oh[sub_bit] & dif_c);
-    wire negative = data_width_oh[Width_bit_w] ? result[31] : data_width_oh[Width_bit_h]|data_width_oh[Width_bit_sh] ? result[15] : result[7];
-    wire overflow = 0; // TODO: Probably remove this?
     wire div_zero = 0;
 
-    assign cc = (zero ? eCC_Z : 0) | (carry ? eCC_C : 0) | (negative ? eCC_N : 0) | (overflow ? eCC_V : 0) | (div_zero ? eCC_D : 0);
+    assign cc = (zero ? eCC_Z : 0) | (carry ? eCC_C : 0) | (result_sign ? eCC_N : 0) | (overflow ? eCC_V : 0) | (div_zero ? eCC_D : 0); 
+
+    wire [31:0] and_ = srcA_val_u & srcB_val_u;    
+    wire [31:0] or_  = srcA_val_u | srcB_val_u;    
+    wire [31:0] xor_ = srcA_val_u ^ srcB_val_u;    
+
+    wire [31:0] lsr_ = data_width_oh[Width_bit_w] ? srcA_val_u >> srcB_val_u[5:0] : data_width_oh[Width_bit_h]|data_width_oh[Width_bit_sh] ? srcA_val_u[15:0] >> srcB_val_u[4:0] : dif_[7:0] >> srcB_val_u[3:0];
+    wire [31:0] lsl_ = srcA_val_u << srcB_val_u[5:0];    
+    wire [31:0] asr_ = data_width_oh[Width_bit_w] ? srcA_val_u >>> srcB_val_u[5:0] : data_width_oh[Width_bit_h]|data_width_oh[Width_bit_sh] ? srcA_val_u[15:0] >>> srcB_val_u[4:0] : dif_[7:0] >>> srcB_val_u[3:0];
+    
 
     // ALU Result
     wire [31:0] alu_result = 
